@@ -1,4 +1,4 @@
-# M&M Technology MRP Prototype UI
+# M&M Technology MRP Prototype UIs
 
 This repository contains a high-level web front-end for the modernized MRP system for M&amp;M Technology. The goal is to provide a structured, data-aware user interface that mirrors the legacy database schema while preparing for a future API and database integration.
 
