@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M&M Technology MRP | Suppliers</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+  <script defer src="../assets/js/app.js"></script>
+</head>
+<body data-page="suppliers">
+  <header class="topbar">
+    <div class="branding">
+      <h1 class="branding__title">M&amp;M Technology</h1>
+      <p class="branding__subtitle">Manufacturing Resource Planning Platform</p>
+    </div>
+    <div class="user-meta">
+      <strong>Supplier Management</strong><br />
+      <span>Maintain AVL records, compliance, and supplier performance</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" aria-label="Primary">
+      <div>
+        <p class="sidebar__group-title">Navigation</p>
+        <ul class="sidebar__nav">
+          <li><a class="sidebar__nav-link" href="index.html" data-nav="dashboard"><span class="sidebar__nav-label">Dashboard</span></a></li>
+          <li><a class="sidebar__nav-link" href="inventory.html" data-nav="inventory"><span class="sidebar__nav-label">Inventory</span></a></li>
+          <li><a class="sidebar__nav-link" href="production.html" data-nav="production"><span class="sidebar__nav-label">Production &amp; MRP</span></a></li>
+          <li><a class="sidebar__nav-link" href="purchasing.html" data-nav="purchasing"><span class="sidebar__nav-label">Purchasing</span></a></li>
+          <li><a class="sidebar__nav-link" href="sales.html" data-nav="sales"><span class="sidebar__nav-label">Sales</span></a></li>
+          <li><a class="sidebar__nav-link" href="workorders.html" data-nav="workorders"><span class="sidebar__nav-label">Work Orders</span></a></li>
+          <li><a class="sidebar__nav-link" href="suppliers.html" data-nav="suppliers"><span class="sidebar__nav-label">Suppliers</span></a></li>
+          <li><a class="sidebar__nav-link" href="customers.html" data-nav="customers"><span class="sidebar__nav-label">Customers</span></a></li>
+          <li><a class="sidebar__nav-link" href="reports.html" data-nav="reports"><span class="sidebar__nav-label">Reports</span></a></li>
+          <li><a class="sidebar__nav-link" href="settings.html" data-nav="settings"><span class="sidebar__nav-label">System Setup</span></a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="content" id="main-content" tabindex="-1">
+      <header class="page-header">
+        <div>
+          <h2 class="page-title" data-page-title>Suppliers</h2>
+          <p class="page-subtitle">Centralize supplier master data, addresses, contacts, and approvals.</p>
+        </div>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          <a href="index.html">Home</a> / <span data-breadcrumb-current>Suppliers</span>
+        </nav>
+      </header>
+
+      <section class="card" data-entity="Suppliers">
+        <h3 class="section-title">Approved Supplier List</h3>
+        <p class="section-description">Matches legacy <code>Suppliers</code>, <code>SupplierAddress</code>, and <code>SupplierContacts</code> tables.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Supplier ID</th>
+                <th>Supplier Name</th>
+                <th>Status</th>
+                <th>Currency</th>
+                <th>Region</th>
+                <th>Buyer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6">API placeholder: <code>/api/suppliers</code>. Include filters for commodity, rating, and compliance.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" data-entity="PartXReference">
+        <h3 class="section-title">Approved Component Sources</h3>
+        <p class="section-description">Derived from <code>PartXReference</code> linking supplier part numbers to M&amp;M part master.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>M&amp;M Part</th>
+                <th>Supplier Part</th>
+                <th>Supplier</th>
+                <th>Lead Time</th>
+                <th>Approved Source</th>
+                <th>Last Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6">Plan vendor scorecard integration and highlight alternate sources.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" data-entity="CommodityCodes">
+        <h3 class="section-title">Commodity Management</h3>
+        <p class="section-description">Manage buyer assignments and compliance fields using <code>CommodityCodes</code> and <code>DepartmentCodes</code>.</p>
+        <div class="grid grid--two">
+          <div>
+            <h4>Commodity Teams</h4>
+            <ul class="summary-list">
+              <li class="summary-list__item"><span>PCB Fabrication</span><span>Assign buyer</span></li>
+              <li class="summary-list__item"><span>Components</span><span>Assign buyer</span></li>
+              <li class="summary-list__item"><span>Mechanical</span><span>Assign buyer</span></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Compliance Notes</h4>
+            <p>Reserve space for quality certifications and NDAs attached to suppliers.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>&copy; <span data-year></span> M&amp;M Technology &mdash; Prototype Interface</span>
+    <a href="https://www.mandm-tech.com/" target="_blank" rel="noopener noreferrer">mandm-tech.com</a>
+  </footer>
+</body>
+</html>

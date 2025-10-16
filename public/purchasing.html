@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M&M Technology MRP | Purchasing</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+  <script defer src="../assets/js/app.js"></script>
+</head>
+<body data-page="purchasing">
+  <header class="topbar">
+    <div class="branding">
+      <h1 class="branding__title">M&amp;M Technology</h1>
+      <p class="branding__subtitle">Manufacturing Resource Planning Platform</p>
+    </div>
+    <div class="user-meta">
+      <strong>Purchasing</strong><br />
+      <span>Track supply commitments and inbound materials</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" aria-label="Primary">
+      <div>
+        <p class="sidebar__group-title">Navigation</p>
+        <ul class="sidebar__nav">
+          <li><a class="sidebar__nav-link" href="index.html" data-nav="dashboard"><span class="sidebar__nav-label">Dashboard</span></a></li>
+          <li><a class="sidebar__nav-link" href="inventory.html" data-nav="inventory"><span class="sidebar__nav-label">Inventory</span></a></li>
+          <li><a class="sidebar__nav-link" href="production.html" data-nav="production"><span class="sidebar__nav-label">Production &amp; MRP</span></a></li>
+          <li><a class="sidebar__nav-link" href="purchasing.html" data-nav="purchasing"><span class="sidebar__nav-label">Purchasing</span></a></li>
+          <li><a class="sidebar__nav-link" href="sales.html" data-nav="sales"><span class="sidebar__nav-label">Sales</span></a></li>
+          <li><a class="sidebar__nav-link" href="workorders.html" data-nav="workorders"><span class="sidebar__nav-label">Work Orders</span></a></li>
+          <li><a class="sidebar__nav-link" href="suppliers.html" data-nav="suppliers"><span class="sidebar__nav-label">Suppliers</span></a></li>
+          <li><a class="sidebar__nav-link" href="customers.html" data-nav="customers"><span class="sidebar__nav-label">Customers</span></a></li>
+          <li><a class="sidebar__nav-link" href="reports.html" data-nav="reports"><span class="sidebar__nav-label">Reports</span></a></li>
+          <li><a class="sidebar__nav-link" href="settings.html" data-nav="settings"><span class="sidebar__nav-label">System Setup</span></a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="content" id="main-content" tabindex="-1">
+      <header class="page-header">
+        <div>
+          <h2 class="page-title" data-page-title>Purchasing</h2>
+          <p class="page-subtitle">Manage purchase orders, supplier confirmations, shortages, and receiving workflow.</p>
+        </div>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          <a href="index.html">Home</a> / <span data-breadcrumb-current>Purchasing</span>
+        </nav>
+      </header>
+
+      <section class="card" data-entity="POHeader">
+        <h3 class="section-title">Open Purchase Orders</h3>
+        <p class="section-description">Combines <code>POHeader</code>, <code>PODetail</code>, and <code>POShortages</code> to monitor inbound supply.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>PO Number</th>
+                <th>Supplier</th>
+                <th>Order Date</th>
+                <th>Required Date</th>
+                <th>Status</th>
+                <th>Total Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6">Placeholder for PO list, filters by buyer, supplier, and status. Connect to <code>/api/purchasing/orders</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" data-entity="PODetail">
+        <h3 class="section-title">Line Detail &amp; Receipts</h3>
+        <p class="section-description">Supports partial receipts, RTV tracking, and kit/component splits from <code>PODetail</code>, <code>PIPIssues</code>, and <code>InventoryLots</code>.</p>
+        <div class="grid grid--two">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Line</th>
+                  <th>Part Number</th>
+                  <th>Ordered Qty</th>
+                  <th>Received</th>
+                  <th>Balance</th>
+                  <th>Job Reference</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="6">Display receiving progress and shortcuts to create WIP issues when released.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <h4>Receiving Checklist</h4>
+            <ul class="summary-list">
+              <li class="summary-list__item"><span>Inspect lot for quality</span><span>Pending</span></li>
+              <li class="summary-list__item"><span>Match supplier paperwork</span><span>Pending</span></li>
+              <li class="summary-list__item"><span>Assign storage location</span><span>Pending</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" data-entity="Suppliers">
+        <h3 class="section-title">Supplier Collaboration</h3>
+        <p class="section-description">Quick jump into <code>Suppliers</code>, <code>SupplierContacts</code>, and <code>SupplierAddress</code> records.</p>
+        <div class="module-grid">
+          <article class="module-card">
+            <div class="module-card__header">
+              <h4 class="module-card__title">Approved Vendors</h4>
+              <a class="module-card__link" href="suppliers.html">Manage</a>
+            </div>
+            <p class="card__meta">Maintain AVL with rating, lead time, and compliance tracking.</p>
+          </article>
+          <article class="module-card">
+            <div class="module-card__header">
+              <h4 class="module-card__title">Commodity Assignments</h4>
+              <span class="tag">From CommodityCodes</span>
+            </div>
+            <p class="card__meta">Link buyers to commodity families for workload balancing.</p>
+          </article>
+          <article class="module-card">
+            <div class="module-card__header">
+              <h4 class="module-card__title">Terms &amp; Logistics</h4>
+              <span class="tag">TermsCodes / ShipViaCodes</span>
+            </div>
+            <p class="card__meta">Ensure payment, freight, and Incoterm data are synchronized.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>&copy; <span data-year></span> M&amp;M Technology &mdash; Prototype Interface</span>
+    <a href="https://www.mandm-tech.com/" target="_blank" rel="noopener noreferrer">mandm-tech.com</a>
+  </footer>
+</body>
+</html>

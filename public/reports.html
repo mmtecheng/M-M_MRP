@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M&M Technology MRP | Reports &amp; Analytics</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+  <script defer src="../assets/js/app.js"></script>
+</head>
+<body data-page="reports">
+  <header class="topbar">
+    <div class="branding">
+      <h1 class="branding__title">M&amp;M Technology</h1>
+      <p class="branding__subtitle">Manufacturing Resource Planning Platform</p>
+    </div>
+    <div class="user-meta">
+      <strong>Reports &amp; Analytics</strong><br />
+      <span>Monitor KPIs, compliance, and audit history</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" aria-label="Primary">
+      <div>
+        <p class="sidebar__group-title">Navigation</p>
+        <ul class="sidebar__nav">
+          <li><a class="sidebar__nav-link" href="index.html" data-nav="dashboard"><span class="sidebar__nav-label">Dashboard</span></a></li>
+          <li><a class="sidebar__nav-link" href="inventory.html" data-nav="inventory"><span class="sidebar__nav-label">Inventory</span></a></li>
+          <li><a class="sidebar__nav-link" href="production.html" data-nav="production"><span class="sidebar__nav-label">Production &amp; MRP</span></a></li>
+          <li><a class="sidebar__nav-link" href="purchasing.html" data-nav="purchasing"><span class="sidebar__nav-label">Purchasing</span></a></li>
+          <li><a class="sidebar__nav-link" href="sales.html" data-nav="sales"><span class="sidebar__nav-label">Sales</span></a></li>
+          <li><a class="sidebar__nav-link" href="workorders.html" data-nav="workorders"><span class="sidebar__nav-label">Work Orders</span></a></li>
+          <li><a class="sidebar__nav-link" href="suppliers.html" data-nav="suppliers"><span class="sidebar__nav-label">Suppliers</span></a></li>
+          <li><a class="sidebar__nav-link" href="customers.html" data-nav="customers"><span class="sidebar__nav-label">Customers</span></a></li>
+          <li><a class="sidebar__nav-link" href="reports.html" data-nav="reports"><span class="sidebar__nav-label">Reports</span></a></li>
+          <li><a class="sidebar__nav-link" href="settings.html" data-nav="settings"><span class="sidebar__nav-label">System Setup</span></a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="content" id="main-content" tabindex="-1">
+      <header class="page-header">
+        <div>
+          <h2 class="page-title" data-page-title>Reports</h2>
+          <p class="page-subtitle">Provide manufacturing insights, regulatory exports, and audit trails.</p>
+        </div>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          <a href="index.html">Home</a> / <span data-breadcrumb-current>Reports</span>
+        </nav>
+      </header>
+
+      <section class="card" data-entity="TransactionHeader">
+        <h3 class="section-title">Transaction History</h3>
+        <p class="section-description">Leverage <code>TransactionHeader</code>, <code>TransactionDetail</code>, and <code>Audit</code> tables for traceability.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Transaction Group</th>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Reference</th>
+                <th>Entered By</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6">Connect to history API &mdash; allow filters by part, customer, supplier, or job.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" data-entity="Preferences">
+        <h3 class="section-title">System Controls</h3>
+        <p class="section-description">View configuration and compliance settings stored in <code>Preferences</code>, <code>SecuritySections</code>, and <code>SecuritySectionDetail</code>.</p>
+        <div class="grid grid--two">
+          <div>
+            <h4>Key Parameters</h4>
+            <ul class="summary-list">
+              <li class="summary-list__item"><span>Base Currency</span><span>Pending</span></li>
+              <li class="summary-list__item"><span>Default Calendar</span><span>Pending</span></li>
+              <li class="summary-list__item"><span>Auto-Generate Jobs</span><span>Pending</span></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Security Modules</h4>
+            <p>Plan integration with role-based access using <code>EmployeeSections</code> and <code>EmployeeSectionDetail</code>.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" data-entity="Calendar">
+        <h3 class="section-title">Calendars &amp; Holidays</h3>
+        <p class="section-description">Expose manufacturing calendars defined in <code>Calendar</code>, <code>ShiftDowntime</code>, and <code>WorkCenterShifts</code>.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Calendar</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Working Days</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="5">Configure plant shutdowns, holidays, and overtime schedules.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>&copy; <span data-year></span> M&amp;M Technology &mdash; Prototype Interface</span>
+    <a href="https://www.mandm-tech.com/" target="_blank" rel="noopener noreferrer">mandm-tech.com</a>
+  </footer>
+</body>
+</html>

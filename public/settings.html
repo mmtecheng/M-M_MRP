@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M&M Technology MRP | System Setup</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+  <script defer src="../assets/js/app.js"></script>
+</head>
+<body data-page="settings">
+  <header class="topbar">
+    <div class="branding">
+      <h1 class="branding__title">M&amp;M Technology</h1>
+      <p class="branding__subtitle">Manufacturing Resource Planning Platform</p>
+    </div>
+    <div class="user-meta">
+      <strong>System Setup</strong><br />
+      <span>Configure master data, codes, and global preferences</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" aria-label="Primary">
+      <div>
+        <p class="sidebar__group-title">Navigation</p>
+        <ul class="sidebar__nav">
+          <li><a class="sidebar__nav-link" href="index.html" data-nav="dashboard"><span class="sidebar__nav-label">Dashboard</span></a></li>
+          <li><a class="sidebar__nav-link" href="inventory.html" data-nav="inventory"><span class="sidebar__nav-label">Inventory</span></a></li>
+          <li><a class="sidebar__nav-link" href="production.html" data-nav="production"><span class="sidebar__nav-label">Production &amp; MRP</span></a></li>
+          <li><a class="sidebar__nav-link" href="purchasing.html" data-nav="purchasing"><span class="sidebar__nav-label">Purchasing</span></a></li>
+          <li><a class="sidebar__nav-link" href="sales.html" data-nav="sales"><span class="sidebar__nav-label">Sales</span></a></li>
+          <li><a class="sidebar__nav-link" href="workorders.html" data-nav="workorders"><span class="sidebar__nav-label">Work Orders</span></a></li>
+          <li><a class="sidebar__nav-link" href="suppliers.html" data-nav="suppliers"><span class="sidebar__nav-label">Suppliers</span></a></li>
+          <li><a class="sidebar__nav-link" href="customers.html" data-nav="customers"><span class="sidebar__nav-label">Customers</span></a></li>
+          <li><a class="sidebar__nav-link" href="reports.html" data-nav="reports"><span class="sidebar__nav-label">Reports</span></a></li>
+          <li><a class="sidebar__nav-link" href="settings.html" data-nav="settings"><span class="sidebar__nav-label">System Setup</span></a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="content" id="main-content" tabindex="-1">
+      <header class="page-header">
+        <div>
+          <h2 class="page-title" data-page-title>System Setup</h2>
+          <p class="page-subtitle">Maintain foundational codes, security, and integration settings for the MRP platform.</p>
+        </div>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          <a href="index.html">Home</a> / <span data-breadcrumb-current>System Setup</span>
+        </nav>
+      </header>
+
+      <section class="card" data-entity="Company">
+        <h3 class="section-title">Company Profile</h3>
+        <p class="section-description">Data sources: <code>Company</code>, <code>CompanyAddress</code>, <code>Preferences</code>.</p>
+        <div class="field-grid">
+          <div class="field">
+            <label for="company-name">Company Name</label>
+            <input id="company-name" type="text" placeholder="M&amp;M Technology" />
+          </div>
+          <div class="field">
+            <label for="region-code">Region Code</label>
+            <input id="region-code" type="text" placeholder="RegionCodes reference" />
+          </div>
+          <div class="field">
+            <label for="vat-number">VAT Registration</label>
+            <input id="vat-number" type="text" placeholder="VATRegNumber" />
+          </div>
+          <div class="field">
+            <label for="base-currency">Base Currency</label>
+            <input id="base-currency" type="text" placeholder="Preferences.BaseCurrency" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card" data-entity="TermsCodes">
+        <h3 class="section-title">Terms &amp; Codes</h3>
+        <p class="section-description">Manage shared references: <code>TermsCodes</code>, <code>TaxCodes</code>, <code>ShipViaCodes</code>, <code>FOBCodes</code>, <code>RegionCodes</code>.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Code Type</th>
+                <th>Code</th>
+                <th>Description</th>
+                <th>Default Usage</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="5">Integrate admin tools for maintaining shared code tables with proper auditing.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" data-entity="SecuritySections">
+        <h3 class="section-title">User Access &amp; Security</h3>
+        <p class="section-description">Align with <code>SecuritySections</code>, <code>SecuritySectionDetail</code>, <code>EmployeeSections</code>, and <code>EmployeeSectionDetail</code>.</p>
+        <div class="grid grid--two">
+          <div>
+            <h4>Role Matrix</h4>
+            <p>Define permissions for planning, purchasing, production, finance, and admin roles.</p>
+          </div>
+          <div>
+            <h4>Upcoming Integrations</h4>
+            <p>Placeholder for SSO, MFA, and AI-based anomaly detection hooks.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>&copy; <span data-year></span> M&amp;M Technology &mdash; Prototype Interface</span>
+    <a href="https://www.mandm-tech.com/" target="_blank" rel="noopener noreferrer">mandm-tech.com</a>
+  </footer>
+</body>
+</html>

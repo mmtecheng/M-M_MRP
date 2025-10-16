@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M&M Technology MRP | Production &amp; MRP</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+  <script defer src="../assets/js/app.js"></script>
+</head>
+<body data-page="production">
+  <header class="topbar">
+    <div class="branding">
+      <h1 class="branding__title">M&amp;M Technology</h1>
+      <p class="branding__subtitle">Manufacturing Resource Planning Platform</p>
+    </div>
+    <div class="user-meta">
+      <strong>Production &amp; MRP</strong><br />
+      <span>Coordinate demand, capacity, and shop routing</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" aria-label="Primary">
+      <div>
+        <p class="sidebar__group-title">Navigation</p>
+        <ul class="sidebar__nav">
+          <li><a class="sidebar__nav-link" href="index.html" data-nav="dashboard"><span class="sidebar__nav-label">Dashboard</span></a></li>
+          <li><a class="sidebar__nav-link" href="inventory.html" data-nav="inventory"><span class="sidebar__nav-label">Inventory</span></a></li>
+          <li><a class="sidebar__nav-link" href="production.html" data-nav="production"><span class="sidebar__nav-label">Production &amp; MRP</span></a></li>
+          <li><a class="sidebar__nav-link" href="purchasing.html" data-nav="purchasing"><span class="sidebar__nav-label">Purchasing</span></a></li>
+          <li><a class="sidebar__nav-link" href="sales.html" data-nav="sales"><span class="sidebar__nav-label">Sales</span></a></li>
+          <li><a class="sidebar__nav-link" href="workorders.html" data-nav="workorders"><span class="sidebar__nav-label">Work Orders</span></a></li>
+          <li><a class="sidebar__nav-link" href="suppliers.html" data-nav="suppliers"><span class="sidebar__nav-label">Suppliers</span></a></li>
+          <li><a class="sidebar__nav-link" href="customers.html" data-nav="customers"><span class="sidebar__nav-label">Customers</span></a></li>
+          <li><a class="sidebar__nav-link" href="reports.html" data-nav="reports"><span class="sidebar__nav-label">Reports</span></a></li>
+          <li><a class="sidebar__nav-link" href="settings.html" data-nav="settings"><span class="sidebar__nav-label">System Setup</span></a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="content" id="main-content" tabindex="-1">
+      <header class="page-header">
+        <div>
+          <h2 class="page-title" data-page-title>Production &amp; MRP</h2>
+          <p class="page-subtitle">Balance demand inputs, production orders, and capacity to deliver PCB assemblies on time.</p>
+        </div>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          <a href="index.html">Home</a> / <span data-breadcrumb-current>Production &amp; MRP</span>
+        </nav>
+      </header>
+
+      <section class="card" data-entity="ForecastHeader">
+        <h3 class="section-title">Demand Forecasting</h3>
+        <p class="section-description">Sources from <code>ForecastHeader</code>, <code>ForecastParts</code>, and <code>ForecastQuantities</code>. Configure time fences and forecast consumption rules.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Forecast ID</th>
+                <th>Part Number</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Quantity</th>
+                <th>Planner</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6">Future view: plot demand curve, overlay firm orders, and highlight exceptions.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" data-entity="MRPPlanning">
+        <h3 class="section-title">MRP Recommendations</h3>
+        <p class="section-description">Combines <code>MRPParts</code>, <code>MRPJobs</code>, and <code>MRPPlanning</code> to surface planned orders, action messages, and pegging details.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Priority</th>
+                <th>Part Number</th>
+                <th>Requirement Date</th>
+                <th>Required Qty</th>
+                <th>Recommended Action</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6">Placeholder for pegging tree and expedite/defer controls. Connect to <code>/api/mrp/recommendations</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" data-entity="CRPDetail">
+        <h3 class="section-title">Capacity Requirements Planning</h3>
+        <p class="section-description">Integrates <code>CRPHeader</code>, <code>CRPDetail</code>, <code>CRPSummary</code>, and <code>WorkCenterShifts</code> to ensure resource availability.</p>
+        <div class="grid grid--two">
+          <div>
+            <h4>Work Center Load</h4>
+            <p>Future chart: compare <em>Capacity</em> vs. <em>CapUsage</em> per work center and shift.</p>
+          </div>
+          <div>
+            <h4>Exceptions</h4>
+            <ul class="summary-list">
+              <li class="summary-list__item"><span>Labor Overloads</span><span>Awaiting data</span></li>
+              <li class="summary-list__item"><span>Machine Downtime</span><span>Awaiting data</span></li>
+              <li class="summary-list__item"><span>Shift Gaps</span><span>Awaiting data</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" data-entity="Routers">
+        <h3 class="section-title">Routing &amp; Processes</h3>
+        <p class="section-description">Show <code>Routers</code>, <code>OperationCodes</code>, and <code>WorkCenters</code> to define shop floor sequences.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Part Number</th>
+                <th>Sequence</th>
+                <th>Operation</th>
+                <th>Work Center</th>
+                <th>Run Time</th>
+                <th>Queue Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6">Embed process visualization and allow alternate routing selection once data is available.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>&copy; <span data-year></span> M&amp;M Technology &mdash; Prototype Interface</span>
+    <a href="https://www.mandm-tech.com/" target="_blank" rel="noopener noreferrer">mandm-tech.com</a>
+  </footer>
+</body>
+</html>
