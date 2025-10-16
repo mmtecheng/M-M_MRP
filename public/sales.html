@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M&M Technology MRP | Sales &amp; Customer Care</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+  <script defer src="../assets/js/app.js"></script>
+</head>
+<body data-page="sales">
+  <header class="topbar">
+    <div class="branding">
+      <h1 class="branding__title">M&amp;M Technology</h1>
+      <p class="branding__subtitle">Manufacturing Resource Planning Platform</p>
+    </div>
+    <div class="user-meta">
+      <strong>Sales &amp; Customer Care</strong><br />
+      <span>Capture demand, manage fulfillment, and invoice customers</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" aria-label="Primary">
+      <div>
+        <p class="sidebar__group-title">Navigation</p>
+        <ul class="sidebar__nav">
+          <li><a class="sidebar__nav-link" href="index.html" data-nav="dashboard"><span class="sidebar__nav-label">Dashboard</span></a></li>
+          <li><a class="sidebar__nav-link" href="inventory.html" data-nav="inventory"><span class="sidebar__nav-label">Inventory</span></a></li>
+          <li><a class="sidebar__nav-link" href="production.html" data-nav="production"><span class="sidebar__nav-label">Production &amp; MRP</span></a></li>
+          <li><a class="sidebar__nav-link" href="purchasing.html" data-nav="purchasing"><span class="sidebar__nav-label">Purchasing</span></a></li>
+          <li><a class="sidebar__nav-link" href="sales.html" data-nav="sales"><span class="sidebar__nav-label">Sales</span></a></li>
+          <li><a class="sidebar__nav-link" href="workorders.html" data-nav="workorders"><span class="sidebar__nav-label">Work Orders</span></a></li>
+          <li><a class="sidebar__nav-link" href="suppliers.html" data-nav="suppliers"><span class="sidebar__nav-label">Suppliers</span></a></li>
+          <li><a class="sidebar__nav-link" href="customers.html" data-nav="customers"><span class="sidebar__nav-label">Customers</span></a></li>
+          <li><a class="sidebar__nav-link" href="reports.html" data-nav="reports"><span class="sidebar__nav-label">Reports</span></a></li>
+          <li><a class="sidebar__nav-link" href="settings.html" data-nav="settings"><span class="sidebar__nav-label">System Setup</span></a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="content" id="main-content" tabindex="-1">
+      <header class="page-header">
+        <div>
+          <h2 class="page-title" data-page-title>Sales</h2>
+          <p class="page-subtitle">From quote to cash: integrate customer profiles, order entry, shipment, and invoicing.</p>
+        </div>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          <a href="index.html">Home</a> / <span data-breadcrumb-current>Sales</span>
+        </nav>
+      </header>
+
+      <section class="card" data-entity="SOHeader">
+        <h3 class="section-title">Sales Order Pipeline</h3>
+        <p class="section-description">Aligns with <code>SOHeader</code> and <code>SODetail</code> to track fulfillment stages.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>SO Number</th>
+                <th>Customer</th>
+                <th>Order Date</th>
+                <th>Status</th>
+                <th>Required Date</th>
+                <th>Total Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6">Pending integration &mdash; expected endpoint <code>/api/sales/orders</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" data-entity="Customers">
+        <h3 class="section-title">Customer Profile</h3>
+        <p class="section-description">Surface core attributes from <code>Customers</code>, <code>CustomerAddress</code>, <code>CustomerContacts</code>, and related pricing tables.</p>
+        <div class="field-grid">
+          <div class="field">
+            <label for="customer-search">Customer Lookup</label>
+            <input id="customer-search" type="search" placeholder="Search by customer ID or name" />
+          </div>
+          <div class="field">
+            <label for="price-code">Price Code</label>
+            <input id="price-code" type="text" placeholder="Linked to PriceDiscountCodes" />
+          </div>
+          <div class="field">
+            <label for="salesperson">Salesperson</label>
+            <input id="salesperson" type="text" placeholder="Connected to Employees" />
+          </div>
+          <div class="field">
+            <label for="terms-code">Terms</label>
+            <input id="terms-code" type="text" placeholder="TermsCodes reference" />
+          </div>
+          <div class="field">
+            <label for="ship-via">Ship Via</label>
+            <input id="ship-via" type="text" placeholder="ShipViaCodes reference" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card" data-entity="InvoiceHeader">
+        <h3 class="section-title">Billing &amp; Credit</h3>
+        <p class="section-description">Covers <code>InvoiceHeader</code>, <code>InvoiceDetail</code>, and <code>CreditMemoHeader</code>/<code>CreditMemoDetail</code> for AR visibility.</p>
+        <div class="grid grid--two">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>SO</th>
+                  <th>Ship Date</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="5">Integrate with finance exports &mdash; hold until accounting system connection is defined.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <h4>Open Credit Memos</h4>
+            <p>Display recently created credits for customer service follow-up.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>&copy; <span data-year></span> M&amp;M Technology &mdash; Prototype Interface</span>
+    <a href="https://www.mandm-tech.com/" target="_blank" rel="noopener noreferrer">mandm-tech.com</a>
+  </footer>
+</body>
+</html>

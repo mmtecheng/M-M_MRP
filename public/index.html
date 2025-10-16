@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M&M Technology MRP | Executive Dashboard</title>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+  <script defer src="../assets/js/app.js"></script>
+</head>
+<body data-page="dashboard">
+  <header class="topbar">
+    <div class="branding">
+      <h1 class="branding__title">M&amp;M Technology</h1>
+      <p class="branding__subtitle">Manufacturing Resource Planning Platform</p>
+    </div>
+    <div class="user-meta">
+      <strong>Executive Dashboard</strong><br />
+      <span>Prototype UI &mdash; No live data</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" aria-label="Primary">
+      <div>
+        <p class="sidebar__group-title">Navigation</p>
+        <ul class="sidebar__nav">
+          <li><a class="sidebar__nav-link" href="index.html" data-nav="dashboard"><span class="sidebar__nav-label">Dashboard</span></a></li>
+          <li><a class="sidebar__nav-link" href="inventory.html" data-nav="inventory"><span class="sidebar__nav-label">Inventory</span></a></li>
+          <li><a class="sidebar__nav-link" href="production.html" data-nav="production"><span class="sidebar__nav-label">Production &amp; MRP</span></a></li>
+          <li><a class="sidebar__nav-link" href="purchasing.html" data-nav="purchasing"><span class="sidebar__nav-label">Purchasing</span></a></li>
+          <li><a class="sidebar__nav-link" href="sales.html" data-nav="sales"><span class="sidebar__nav-label">Sales</span></a></li>
+          <li><a class="sidebar__nav-link" href="workorders.html" data-nav="workorders"><span class="sidebar__nav-label">Work Orders</span></a></li>
+          <li><a class="sidebar__nav-link" href="suppliers.html" data-nav="suppliers"><span class="sidebar__nav-label">Suppliers</span></a></li>
+          <li><a class="sidebar__nav-link" href="customers.html" data-nav="customers"><span class="sidebar__nav-label">Customers</span></a></li>
+          <li><a class="sidebar__nav-link" href="reports.html" data-nav="reports"><span class="sidebar__nav-label">Reports</span></a></li>
+          <li><a class="sidebar__nav-link" href="settings.html" data-nav="settings"><span class="sidebar__nav-label">System Setup</span></a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="content" id="main-content" tabindex="-1">
+      <header class="page-header">
+        <div>
+          <h2 class="page-title" data-page-title>Dashboard</h2>
+          <p class="page-subtitle">High-level snapshot of core manufacturing KPIs and quick module access.</p>
+        </div>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          Home / <span data-breadcrumb-current>Dashboard</span>
+        </nav>
+      </header>
+
+      <section class="card">
+        <div class="module-grid">
+          <article class="module-card">
+            <div class="module-card__header">
+              <h3 class="module-card__title">Inventory &amp; Materials</h3>
+              <a class="module-card__link" href="inventory.html">View module</a>
+            </div>
+            <p class="card__meta">Part Master, BOM, stock locations, serial/lot tracking, and UOM control.</p>
+            <ul class="summary-list">
+              <li class="summary-list__item"><span>PartMaster</span><span class="tag">Core</span></li>
+              <li class="summary-list__item"><span>BOM &amp; RefDesignators</span><span class="tag">Structures</span></li>
+              <li class="summary-list__item"><span>InventoryLots &amp; Tags</span><span class="tag">Traceability</span></li>
+            </ul>
+          </article>
+          <article class="module-card">
+            <div class="module-card__header">
+              <h3 class="module-card__title">Production Planning</h3>
+              <a class="module-card__link" href="production.html">View module</a>
+            </div>
+            <p class="card__meta">CRP, forecasting, router management, and MRP planning queue visibility.</p>
+            <ul class="summary-list">
+              <li class="summary-list__item"><span>MRPParts &amp; Planning</span><span class="tag">Planning</span></li>
+              <li class="summary-list__item"><span>ForecastHeader &amp; Detail</span><span class="tag">Demand</span></li>
+              <li class="summary-list__item"><span>Routers &amp; WorkCenters</span><span class="tag">Execution</span></li>
+            </ul>
+          </article>
+          <article class="module-card">
+            <div class="module-card__header">
+              <h3 class="module-card__title">Purchasing &amp; Supply</h3>
+              <a class="module-card__link" href="purchasing.html">View module</a>
+            </div>
+            <p class="card__meta">PO management, supplier master data, shortages, and receiving readiness.</p>
+            <ul class="summary-list">
+              <li class="summary-list__item"><span>POHeader &amp; Detail</span><span class="tag">Orders</span></li>
+              <li class="summary-list__item"><span>Suppliers &amp; Contacts</span><span class="tag">Vendors</span></li>
+              <li class="summary-list__item"><span>PIPIssues &amp; Shortages</span><span class="tag">Exceptions</span></li>
+            </ul>
+          </article>
+          <article class="module-card">
+            <div class="module-card__header">
+              <h3 class="module-card__title">Sales &amp; Customer Care</h3>
+              <a class="module-card__link" href="sales.html">View module</a>
+            </div>
+            <p class="card__meta">Customer master data, orders, invoicing, and credit memo visibility.</p>
+            <ul class="summary-list">
+              <li class="summary-list__item"><span>Customers &amp; Addresses</span><span class="tag">CRM</span></li>
+              <li class="summary-list__item"><span>SOHeader &amp; Detail</span><span class="tag">Orders</span></li>
+              <li class="summary-list__item"><span>Invoice &amp; CreditMemo</span><span class="tag">Billing</span></li>
+            </ul>
+          </article>
+          <article class="module-card">
+            <div class="module-card__header">
+              <h3 class="module-card__title">Shop Floor &amp; Labor</h3>
+              <a class="module-card__link" href="workorders.html">View module</a>
+            </div>
+            <p class="card__meta">WO lifecycle, labor distribution, shortages, and serial traceability.</p>
+            <ul class="summary-list">
+              <li class="summary-list__item"><span>WOHeader &amp; WIPIssues</span><span class="tag">Execution</span></li>
+              <li class="summary-list__item"><span>LaborDistribution</span><span class="tag">Labor</span></li>
+              <li class="summary-list__item"><span>SerialLotNumbers</span><span class="tag">QA</span></li>
+            </ul>
+          </article>
+          <article class="module-card">
+            <div class="module-card__header">
+              <h3 class="module-card__title">Analytics &amp; Configuration</h3>
+              <a class="module-card__link" href="reports.html">View module</a>
+            </div>
+            <p class="card__meta">Reports, KPIs, regulatory tracking, and foundational control tables.</p>
+            <ul class="summary-list">
+              <li class="summary-list__item"><span>Transaction History</span><span class="tag">Audit</span></li>
+              <li class="summary-list__item"><span>Preferences &amp; SysKeys</span><span class="tag">Config</span></li>
+              <li class="summary-list__item"><span>Calendar &amp; Terms</span><span class="tag">Reference</span></li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3 class="section-title">Implementation Notes</h3>
+        <p class="section-description">This interface is intentionally data-agnostic. Each card references one or more legacy tables to support data migration planning and API design.</p>
+        <div class="notice" role="note">
+          <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1010 10A10.011 10.011 0 0012 2zm.75 15h-1.5v-6h1.5zm0-8h-1.5V7h1.5z"/></svg>
+          <div>
+            <p><strong>Next Steps:</strong> Wire each module to the future API layer, design data validation, and plan ETL from the legacy MRP database into a modern relational schema.</p>
+            <p>Documented entities are mapped to UI panels through <code>data-entity</code> attributes across the application.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>&copy; <span data-year></span> M&amp;M Technology &mdash; Prototype Interface</span>
+    <a href="https://www.mandm-tech.com/" target="_blank" rel="noopener noreferrer">mandm-tech.com</a>
+  </footer>
+</body>
+</html>
