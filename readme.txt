@@ -42,6 +42,7 @@ Node.js and Prisma tooling has been added to the repository to support database 
 * Copy `.env.example` to `.env` and provide the connection string for your database.
 * Generate the Prisma client with `npm run prisma:generate`.
 * Pull the remote schema locally with `npm run prisma:introspect` and edit `prisma/schema.prisma` as models are refined.
+* Run `npm run prisma:sync` to execute introspection and regenerate the Prisma client in a single step when the database schema changes. The command logs whether `prisma/schema.prisma` changed, which models were added or removed, and verifies that the generated client exports the expected models so you can confirm the refresh succeeded. For a deeper inspection, run `git status` or `git diff prisma/schema.prisma` after the sync completes.
 * Use `npm run prisma:studio` for a visual interface and `npx prisma db seed` to execute `prisma/seed.ts` when seed data is required.
 
 The Node entry point at `src/index.ts` is a lightweight connectivity check that can be expanded into scripts for one-off analysis or background jobs once the Prisma client has been generated.
