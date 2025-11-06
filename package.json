@@ -1,0 +1,27 @@
+{
+  "name": "m-m_mrp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ts-node --esm src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:introspect": "prisma db pull",
+    "prisma:studio": "prisma studio"
+  },
+  "prisma": {
+    "seed": "ts-node --esm --transpile-only prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.16.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "prisma": "^5.16.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

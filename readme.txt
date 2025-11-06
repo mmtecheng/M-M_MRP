@@ -33,3 +33,15 @@ Each page loads the shared navigation and styles and exposes the database entiti
 4. Introduce authentication, authorization, and audit logging before exposing the UI to production users.
 
 The current UI is static and contains no real data. It is intended as a blueprint for collaboration between product, design, and engineering teams.
+
+## Backend Data Layer Tooling
+
+Node.js and Prisma tooling has been added to the repository to support database introspection and local experimentation with the AWS RDS instance referenced by the `DATABASE_URL` environment variable.
+
+* Install dependencies with `npm install`.
+* Copy `.env.example` to `.env` and provide the connection string for your database.
+* Generate the Prisma client with `npm run prisma:generate`.
+* Pull the remote schema locally with `npm run prisma:introspect` and edit `prisma/schema.prisma` as models are refined.
+* Use `npm run prisma:studio` for a visual interface and `npx prisma db seed` to execute `prisma/seed.ts` when seed data is required.
+
+The Node entry point at `src/index.ts` is a lightweight connectivity check that can be expanded into scripts for one-off analysis or background jobs once the Prisma client has been generated.
