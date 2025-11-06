@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
+import { logger, serializeError } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 
 type PartSearchResult = {
@@ -86,6 +87,11 @@ async function searchParts(term: string): Promise<PartSearchResult[]> {
   const prefixWildcard = `${trimmed}%`;
   const containsWildcard = `%${trimmed}%`;
 
+  logger.debug('Executing part search query', {
+    searchTermLength: trimmed.length,
+    searchTermPreview: trimmed.slice(0, 32),
+  });
+
   const results = (await prisma.$queryRaw`
     SELECT
       PartNumber,
@@ -112,13 +118,26 @@ async function handlePartSearch(req: IncomingMessage, res: ServerResponse, searc
     return;
   }
 
+  logger.info('Incoming part search request', {
+    searchTermLength: searchTerm.length,
+    searchTermPreview: searchTerm.trim().slice(0, 32),
+  });
+
   try {
     const data = await searchParts(searchTerm);
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ data }));
+
+    logger.info('Part search completed', {
+      resultCount: data.length,
+      searchTermLength: searchTerm.length,
+    });
   } catch (error) {
-    console.error('Part search failed:', error);
+    logger.error('Part search failed', {
+      searchTermLength: searchTerm.length,
+      error: serializeError(error),
+    });
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ error: 'Unable to complete part search.' }));
@@ -136,7 +155,10 @@ async function serveStaticAsset(res: ServerResponse, filePath: string) {
     res.setHeader('Content-Type', resolveMimeType(filePath));
     const stream = createReadStream(filePath);
     stream.on('error', (streamError) => {
-      console.error('Streaming error:', streamError);
+      logger.error('Streaming error while serving asset', {
+        filePath,
+        error: serializeError(streamError),
+      });
       if (!res.headersSent) {
         res.statusCode = 500;
         res.end('Internal Server Error');
@@ -159,7 +181,10 @@ async function serveStaticAsset(res: ServerResponse, filePath: string) {
       return;
     }
 
-    console.error('Failed to serve asset:', error);
+    logger.error('Failed to serve asset', {
+      filePath,
+      error: serializeError(error),
+    });
     res.statusCode = 500;
     res.end('Internal Server Error');
   }
@@ -205,20 +230,20 @@ const server = createServer((req, res) => {
 
 async function bootstrap() {
   await prisma.$connect();
-  console.log('Prisma connection established.');
+  logger.info('Prisma connection established');
 
   server.listen(DEFAULT_PORT, () => {
-    console.log(`Server listening on http://localhost:${DEFAULT_PORT}`);
+    logger.info('Server listening', { port: DEFAULT_PORT });
   });
 }
 
 bootstrap().catch((error) => {
-  console.error('Failed to start server:', error);
+  logger.error('Failed to start server', { error: serializeError(error) });
   process.exit(1);
 });
 
 async function shutdown() {
-  console.log('Shutting down server.');
+  logger.info('Shutting down server');
   server.close(() => {
     void prisma.$disconnect().finally(() => {
       process.exit(0);
