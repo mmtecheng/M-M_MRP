@@ -12,6 +12,9 @@
     "prisma:introspect": "prisma db pull",
     "prisma:studio": "prisma studio"
   },
+  "engines": {
+    "node": "22.x"
+  },
   "prisma": {
     "seed": "ts-node --esm --transpile-only prisma/seed.ts"
   },
