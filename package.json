@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:introspect": "prisma db pull",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "prisma:sync": "ts-node --esm src/scripts/syncPrismaSchema.ts"
   },
   "engines": {
     "node": "22.x"
