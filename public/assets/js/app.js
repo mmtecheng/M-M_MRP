@@ -23,4 +23,110 @@ document.addEventListener('DOMContentLoaded', () => {
   if (yearTarget) {
     yearTarget.textContent = new Date().getFullYear();
   }
+
+  if (bodyPage === 'inventory') {
+    initInventorySearch();
+  }
 });
+
+function initInventorySearch() {
+  const searchInput = document.querySelector('#part-search');
+  const resultsBody = document.querySelector('[data-part-results]');
+
+  if (!searchInput || !resultsBody) {
+    return;
+  }
+
+  let debounceTimer = 0;
+  let activeController = null;
+
+  const showMessage = (message) => {
+    resultsBody.innerHTML = '';
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 7;
+    cell.dataset.partMessage = '';
+    cell.textContent = message;
+    row.appendChild(cell);
+    resultsBody.appendChild(row);
+  };
+
+  const renderRows = (parts) => {
+    resultsBody.innerHTML = '';
+    parts.forEach((part) => {
+      const row = document.createElement('tr');
+      const cells = [
+        part.partNumber,
+        part.description,
+        part.revision,
+        part.stockUom,
+        part.commodityCode,
+        part.abcCode,
+        part.status,
+      ];
+
+      cells.forEach((value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value && value.length > 0 ? value : '—';
+        row.appendChild(cell);
+      });
+
+      resultsBody.appendChild(row);
+    });
+  };
+
+  const performSearch = async () => {
+    const query = searchInput.value.trim();
+
+    if (query.length === 0) {
+      showMessage('Enter a part number to search.');
+      return;
+    }
+
+    showMessage('Searching…');
+
+    if (activeController && typeof activeController.abort === 'function') {
+      activeController.abort();
+    }
+
+    activeController = typeof AbortController === 'undefined' ? null : new AbortController();
+
+    try {
+      const fetchOptions = {};
+
+      if (activeController) {
+        fetchOptions.signal = activeController.signal;
+      }
+
+      const response = await fetch(`/api/parts?search=${encodeURIComponent(query)}`, fetchOptions);
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const payload = await response.json();
+      const parts = Array.isArray(payload.data) ? payload.data : [];
+
+      if (parts.length === 0) {
+        showMessage('No parts matched your search.');
+        return;
+      }
+
+      renderRows(parts);
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return;
+      }
+
+      console.error('Part search failed:', error);
+      showMessage('Unable to retrieve parts. Please try again.');
+    }
+  };
+
+  searchInput.addEventListener('input', () => {
+    window.clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(performSearch, 300);
+  });
+
+  showMessage('Enter a part number to search.');
+}
