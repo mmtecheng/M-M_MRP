@@ -39,7 +39,8 @@ The current UI is static and contains no real data. It is intended as a blueprin
 Node.js and Prisma tooling has been added to the repository to support database introspection and local experimentation with the AWS RDS instance referenced by the `DATABASE_URL` environment variable.
 
 * Install dependencies with `npm install`.
-* Copy `.env.example` to `.env` and provide the connection string for your database.
+* For local development, copy `.env.example` to `.env` and provide the connection string for your database. Production deploys
+  (e.g., on Vercel) should continue to source `DATABASE_URL` from their managed environment secrets.
 * Generate the Prisma client with `npm run prisma:generate`.
 * Pull the remote schema locally with `npm run prisma:introspect` and edit `prisma/schema.prisma` as models are refined.
 * Run `npm run prisma:sync` to execute introspection and regenerate the Prisma client in a single step when the database schema changes.
