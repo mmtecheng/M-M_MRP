@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "ts-node --esm src/index.ts",
-    "build": "tsc",
+    "build": "npm run prisma:generate && tsc",
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:introspect": "prisma db pull",
     "prisma:studio": "prisma studio",
-    "prisma:sync": "ts-node --esm src/scripts/syncPrismaSchema.ts"
+    "prisma:sync": "ts-node --esm src/scripts/syncPrismaSchema.ts",
+    "postinstall": "npm run prisma:generate"
   },
   "engines": {
     "node": "22.x"
