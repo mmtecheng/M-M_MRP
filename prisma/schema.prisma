@@ -10,9 +10,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Example model definition:
-// model Example {
-//   id        Int      @id @default(autoincrement())
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
+// Prisma requires at least one model definition to generate a client.
+// This placeholder model ensures the Prisma Client is generated even though
+// the application uses raw SQL queries for data access.
+model PrismaPlaceholder {
+  id Int @id
+}

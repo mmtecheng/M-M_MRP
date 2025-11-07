@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 import { logger } from './logger.js';
 
@@ -12,29 +13,25 @@ if (connectionString) {
   logger.warn('DATABASE_URL is not defined; Prisma will use default configuration');
 }
 
-type PrismaQueryEvent = {
-  query: string;
-  params: string;
-  duration: number;
-  target: string;
-};
-
-type PrismaLogEvent = {
-  message: string;
-  target: string;
-};
+const prismaLogLevels: Prisma.LogLevel[] = ['query', 'error', 'warn'];
 
 declare global {
   var prisma: PrismaClient | undefined;
 }
 
-export const prisma =
+const prismaClient =
   global.prisma ??
   new PrismaClient({
-    log: ['query', 'error', 'warn'],
+    log: prismaLogLevels,
   });
 
-prisma.$on('query', (event: PrismaQueryEvent) => {
+export const prisma =
+  prismaClient as PrismaClient<
+    Prisma.PrismaClientOptions,
+    'query' | 'warn' | 'error'
+  >;
+
+prisma.$on('query', (event: Prisma.QueryEvent) => {
   logger.debug('Prisma query executed', {
     query: event.query.slice(0, 200),
     params: event.params.slice(0, 200),
@@ -43,14 +40,14 @@ prisma.$on('query', (event: PrismaQueryEvent) => {
   });
 });
 
-prisma.$on('warn', (event: PrismaLogEvent) => {
+prisma.$on('warn', (event: Prisma.LogEvent) => {
   logger.warn('Prisma client warning', {
     message: event.message,
     target: event.target,
   });
 });
 
-prisma.$on('error', (event: PrismaLogEvent) => {
+prisma.$on('error', (event: Prisma.LogEvent) => {
   logger.error('Prisma client error', {
     message: event.message,
     target: event.target,
