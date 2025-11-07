@@ -27,6 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (bodyPage === 'inventory') {
     initInventorySearch();
   }
+
+  if (bodyPage === 'dashboard') {
+    initDashboardAdminTools();
+  }
 });
 
 function initInventorySearch() {
@@ -129,4 +133,54 @@ function initInventorySearch() {
   });
 
   showMessage('Enter a part number to search.');
+}
+
+function initDashboardAdminTools() {
+  const syncButton = document.querySelector('[data-action="prisma-sync"]');
+  const statusMessage = document.querySelector('[data-prisma-sync-status]');
+
+  if (!syncButton || !statusMessage) {
+    return;
+  }
+
+  const setStatus = (message, state) => {
+    statusMessage.textContent = message;
+    statusMessage.classList.remove('is-info', 'is-success', 'is-error');
+
+    if (state) {
+      statusMessage.classList.add(`is-${state}`);
+    }
+  };
+
+  setStatus('', null);
+
+  syncButton.addEventListener('click', async () => {
+    if (syncButton.disabled) {
+      return;
+    }
+
+    setStatus('Synchronizing schema…', 'info');
+    syncButton.disabled = true;
+    syncButton.setAttribute('aria-busy', 'true');
+
+    try {
+      const response = await fetch('/api/prisma/sync', { method: 'POST' });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message = payload && typeof payload.error === 'string' ? payload.error : 'Prisma synchronization failed.';
+        throw new Error(message);
+      }
+
+      const message = payload && typeof payload.message === 'string' ? payload.message : 'Prisma schema synchronized.';
+      setStatus(message, 'success');
+    } catch (error) {
+      console.error('Prisma schema sync failed:', error);
+      const fallback = error instanceof Error ? error.message : 'Unable to synchronize Prisma schema.';
+      setStatus(fallback, 'error');
+    } finally {
+      syncButton.disabled = false;
+      syncButton.removeAttribute('aria-busy');
+    }
+  });
 }

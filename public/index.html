@@ -127,6 +127,20 @@
       </section>
 
       <section class="card">
+        <h3 class="section-title">Prisma Schema Tools</h3>
+        <p class="section-description">
+          Refresh Prisma's schema from the live database when tables change. This runs
+          <code>npx prisma db pull</code> followed by <code>prisma generate</code> to update the client.
+        </p>
+        <div class="admin-tools">
+          <button type="button" class="button button--primary" data-action="prisma-sync">
+            Run Prisma schema sync
+          </button>
+          <p class="status-message" data-prisma-sync-status aria-live="polite"></p>
+        </div>
+      </section>
+
+      <section class="card">
         <h3 class="section-title">Implementation Notes</h3>
         <p class="section-description">This interface is intentionally data-agnostic. Each card references one or more legacy tables to support data migration planning and API design.</p>
         <div class="notice" role="note">

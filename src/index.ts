@@ -1,8 +1,10 @@
 import 'dotenv/config';
+import { spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
+import process from 'node:process';
 import { logger, serializeError } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { searchParts } from './services/parts.js';
@@ -21,6 +23,115 @@ const MIME_TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8',
 };
+
+const PRISMA_EXECUTABLE = 'npx';
+const PRISMA_COMMAND = 'prisma';
+const PRISMA_DB_PULL_ARGS = ['db', 'pull'];
+const PRISMA_GENERATE_ARGS = ['generate'];
+
+type PrismaStepResult = {
+  step: string;
+  stdout: string;
+  stderr: string;
+};
+
+let prismaSyncInProgress = false;
+
+async function runPrismaCommand(args: string[], step: string): Promise<PrismaStepResult> {
+  logger.info('Starting Prisma command', { step, args });
+
+  return await new Promise<PrismaStepResult>((resolve, reject) => {
+    const child = spawn(PRISMA_EXECUTABLE, [PRISMA_COMMAND, ...args], {
+      env: process.env,
+      shell: process.platform === 'win32',
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout?.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr?.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', (error) => {
+      logger.error('Failed to start Prisma command', { step, error: serializeError(error) });
+      reject(error);
+    });
+
+    child.on('exit', (code) => {
+      if (code === 0) {
+        logger.info('Prisma command completed', { step });
+        resolve({ step, stdout, stderr });
+        return;
+      }
+
+      const commandError = new Error(`Prisma ${step} exited with code ${code ?? 'null'}`);
+      logger.error('Prisma command failed', {
+        step,
+        code,
+        stdout: stdout.slice(-1000),
+        stderr: stderr.slice(-1000),
+      });
+      reject(commandError);
+    });
+  });
+}
+
+async function performPrismaSync() {
+  const results: PrismaStepResult[] = [];
+
+  results.push(await runPrismaCommand(PRISMA_DB_PULL_ARGS, 'schema introspection'));
+  results.push(await runPrismaCommand(PRISMA_GENERATE_ARGS, 'client generation'));
+
+  return results;
+}
+
+async function handlePrismaSyncRequest(res: ServerResponse) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  if (!process.env.DATABASE_URL) {
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: 'DATABASE_URL is not configured on the server.' }));
+    return;
+  }
+
+  if (prismaSyncInProgress) {
+    res.statusCode = 409;
+    res.end(JSON.stringify({ error: 'A Prisma synchronization is already in progress.' }));
+    return;
+  }
+
+  prismaSyncInProgress = true;
+
+  try {
+    const steps = await performPrismaSync();
+    const responseSteps = steps.map(({ step, stdout, stderr }) => ({
+      step,
+      stdout: stdout.trim(),
+      stderr: stderr.trim(),
+    }));
+
+    res.statusCode = 200;
+    res.end(
+      JSON.stringify({
+        message: 'Prisma schema synchronized successfully.',
+        steps: responseSteps,
+      }),
+    );
+
+    logger.info('Prisma schema synchronization finished successfully');
+  } catch (error) {
+    logger.error('Prisma schema synchronization failed', { error: serializeError(error) });
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: 'Failed to synchronize Prisma schema. Check server logs for details.' }));
+  } finally {
+    prismaSyncInProgress = false;
+  }
+}
 
 function resolveMimeType(filePath: string) {
   const extension = path.extname(filePath).toLowerCase();
@@ -130,6 +241,11 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
 
   const normalizedPath = url.pathname === '/' ? '/' : url.pathname.replace(/\/+$/, '');
 
+  if (req.method === 'POST' && normalizedPath === '/api/prisma/sync') {
+    await handlePrismaSyncRequest(res);
+    return;
+  }
+
   if (req.method === 'GET' && normalizedPath === '/api/parts') {
     await handlePartSearch(req, res, url.searchParams.get('search') ?? '');
     return;
@@ -137,7 +253,7 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
 
   if (req.method !== 'GET') {
     res.statusCode = 405;
-    res.setHeader('Allow', 'GET');
+    res.setHeader('Allow', 'GET, POST');
     res.end('Method Not Allowed');
     return;
   }
