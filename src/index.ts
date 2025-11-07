@@ -199,7 +199,15 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
 
   const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
 
-  if (req.method === 'GET' && url.pathname === '/api/parts') {
+  logger.debug('Incoming request received', {
+    method: req.method,
+    url: req.url,
+    pathname: url.pathname,
+  });
+
+  const normalizedPath = url.pathname === '/' ? '/' : url.pathname.replace(/\/+$/, '');
+
+  if (req.method === 'GET' && normalizedPath === '/api/parts') {
     await handlePartSearch(req, res, url.searchParams.get('search') ?? '');
     return;
   }
@@ -211,7 +219,7 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
-  const requestedPath = url.pathname === '/' ? '/index.html' : url.pathname;
+  const requestedPath = normalizedPath === '/' ? '/index.html' : normalizedPath;
   const safePath = sanitizePath(requestedPath);
   const absolutePath = path.join(PUBLIC_DIR, safePath);
 

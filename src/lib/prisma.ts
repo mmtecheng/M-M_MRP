@@ -2,6 +2,16 @@ import { PrismaClient } from '@prisma/client';
 
 import { logger } from './logger.js';
 
+const connectionString = process.env.DATABASE_URL;
+
+if (connectionString) {
+  logger.info('Prisma database connection string resolved', {
+    connectionString,
+  });
+} else {
+  logger.warn('DATABASE_URL is not defined; Prisma will use default configuration');
+}
+
 type PrismaQueryEvent = {
   query: string;
   params: string;
