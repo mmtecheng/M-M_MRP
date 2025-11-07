@@ -71,7 +71,7 @@ export async function searchParts(term: string): Promise<PartSearchResult[]> {
       CommodityCode,
       ABCCode,
       Status
-    FROM PartMaster
+    FROM partmaster
     WHERE PartNumber LIKE ${prefixWildcard} OR Description LIKE ${containsWildcard}
     ORDER BY PartNumber
     LIMIT 25
