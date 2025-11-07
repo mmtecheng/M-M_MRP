@@ -46,3 +46,19 @@ Node.js and Prisma tooling has been added to the repository to support database 
 * Use `npm run prisma:studio` for a visual interface and `npx prisma db seed` to execute `prisma/seed.ts` when seed data is required.
 
 The Node entry point at `src/index.ts` is a lightweight connectivity check that can be expanded into scripts for one-off analysis or background jobs once the Prisma client has been generated.
+
+## Viewing Server Logs
+
+The instrumentation that prints the resolved Prisma connection string and request lifecycle events writes to standard output. Where
+those messages appear depends on how the app is running:
+
+* **Local development** – start the service with `npm run dev` (TypeScript via `ts-node`) or `npm start` (compiled JavaScript).
+  The structured JSON log entries will stream directly to your terminal.
+* **Vercel** – deploys execute the server in Serverless Functions. Open the deployment in the Vercel dashboard, select the
+  **Functions** tab, and expand the entry for the request you made. The same JSON log payloads are attached to each invocation.
+  If the dashboard reports a 404 without any log lines, the request never reached the backend handler – double-check that the
+  `api/parts.ts` function was deployed and that your client is calling `/api/parts` on the same domain as the UI.
+
+Because these logs are emitted by the Node.js process, they will not surface in the browser developer tools unless you proxy them
+to the client yourself. If you still do not see logs in Vercel, confirm you are looking at the deployment that served the request
+and that the request reached the backend (e.g., no CDN cache hit).
