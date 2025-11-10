@@ -1,14 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 
+import { summarizeConnectionString } from './connectionString.js';
 import { logger } from './logger.js';
 
 const connectionString = process.env.DATABASE_URL;
 
 if (connectionString) {
-  logger.info('Prisma database connection string resolved', {
-    connectionString,
-  });
+  logger.info('Prisma database connection string resolved', summarizeConnectionString(connectionString));
 } else {
   logger.warn('DATABASE_URL is not defined; Prisma will use default configuration');
 }
@@ -32,7 +31,7 @@ export const prisma =
   >;
 
 prisma.$on('query', (event: Prisma.QueryEvent) => {
-  logger.debug('Prisma query executed', {
+  logger.info('Prisma database query executed', {
     query: event.query.slice(0, 200),
     params: event.params.slice(0, 200),
     duration: event.duration,

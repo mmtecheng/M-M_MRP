@@ -5,6 +5,7 @@ import { stat } from 'node:fs/promises';
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
+import { summarizeConnectionString } from './lib/connectionString.js';
 import { logger, serializeError } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { searchParts } from './services/parts.js';
@@ -98,6 +99,11 @@ async function handlePrismaSyncRequest(res: ServerResponse) {
     res.end(JSON.stringify({ error: 'DATABASE_URL is not configured on the server.' }));
     return;
   }
+
+  logger.info(
+    'Prisma sync will use configured database connection string (server runtime)',
+    summarizeConnectionString(process.env.DATABASE_URL),
+  );
 
   if (prismaSyncInProgress) {
     res.statusCode = 409;
