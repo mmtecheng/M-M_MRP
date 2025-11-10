@@ -38,16 +38,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initInventorySearch() {
   const searchInput = document.querySelector('#part-search');
+  const descriptionInput = document.querySelector('#description-search');
+  const inStockCheckbox = document.querySelector('#in-stock-filter');
   const resultsBody = document.querySelector('[data-part-results]');
 
   if (!searchInput || !resultsBody) {
     return;
   }
 
+  const COLUMN_COUNT = 7;
+  const quantityFormatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+
   let debounceTimer = 0;
   let activeController = null;
   let selectedRow = null;
   let selectedPartNumber = '';
+
+  const getPartQuery = () => searchInput.value.trim();
+  const getDescriptionQuery = () => (descriptionInput ? descriptionInput.value.trim() : '');
+  const isInStockOnly = () => Boolean(inStockCheckbox?.checked);
 
   const clearSelection = () => {
     const hadSelection = Boolean(selectedRow || selectedPartNumber);
@@ -69,7 +81,7 @@ function initInventorySearch() {
     resultsBody.innerHTML = '';
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 7;
+    cell.colSpan = COLUMN_COUNT;
     cell.dataset.partMessage = '';
     cell.textContent = message;
     row.appendChild(cell);
@@ -117,13 +129,18 @@ function initInventorySearch() {
         }
       });
 
+      const quantityValue =
+        typeof part.availableQuantity === 'number' && Number.isFinite(part.availableQuantity)
+          ? part.availableQuantity
+          : 0;
+
       const cells = [
         part.partNumber,
         part.description,
         part.revision,
+        quantityFormatter.format(quantityValue),
+        part.location,
         part.stockUom,
-        part.commodityCode,
-        part.abcCode,
         part.status,
       ];
 
@@ -149,10 +166,12 @@ function initInventorySearch() {
   };
 
   const performSearch = async () => {
-    const query = searchInput.value.trim();
+    const partQuery = getPartQuery();
+    const descriptionQuery = getDescriptionQuery();
+    const inStockOnly = isInStockOnly();
 
-    if (query.length === 0) {
-      showMessage('Enter a part number to search.');
+    if (!partQuery && !descriptionQuery && !inStockOnly) {
+      showMessage('Enter a part number, description, or enable In Stock to search.');
       return;
     }
 
@@ -165,13 +184,28 @@ function initInventorySearch() {
     activeController = typeof AbortController === 'undefined' ? null : new AbortController();
 
     try {
+      const params = new URLSearchParams();
       const fetchOptions = {};
+
+      if (partQuery) {
+        params.set('partNumber', partQuery);
+      }
+
+      if (descriptionQuery) {
+        params.set('description', descriptionQuery);
+      }
+
+      if (inStockOnly) {
+        params.set('inStock', 'true');
+      }
 
       if (activeController) {
         fetchOptions.signal = activeController.signal;
       }
 
-      const response = await fetch(`/api/parts?search=${encodeURIComponent(query)}`, fetchOptions);
+      const queryString = params.toString();
+      const requestUrl = queryString.length > 0 ? `/api/parts?${queryString}` : '/api/parts';
+      const response = await fetch(requestUrl, fetchOptions);
 
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
@@ -181,7 +215,7 @@ function initInventorySearch() {
       const parts = Array.isArray(payload.data) ? payload.data : [];
 
       if (parts.length === 0) {
-        showMessage('No parts matched your search.');
+        showMessage('No parts matched your filters.');
         return;
       }
 
@@ -196,12 +230,27 @@ function initInventorySearch() {
     }
   };
 
-  searchInput.addEventListener('input', () => {
+  const queueSearch = () => {
     window.clearTimeout(debounceTimer);
-    debounceTimer = window.setTimeout(performSearch, 300);
-  });
+    debounceTimer = window.setTimeout(() => {
+      void performSearch();
+    }, 300);
+  };
 
-  showMessage('Enter a part number to search.');
+  searchInput.addEventListener('input', queueSearch);
+
+  if (descriptionInput) {
+    descriptionInput.addEventListener('input', queueSearch);
+  }
+
+  if (inStockCheckbox) {
+    inStockCheckbox.addEventListener('change', () => {
+      window.clearTimeout(debounceTimer);
+      void performSearch();
+    });
+  }
+
+  showMessage('Adjust the filters to search for parts.');
 }
 
 function initBillOfMaterials() {

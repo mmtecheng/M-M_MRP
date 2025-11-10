@@ -12,7 +12,6 @@ import { getBillOfMaterials } from './services/bom.js';
 import { getInventorySnapshot } from './services/inventory.js';
 import { searchParts } from './services/parts.js';
 import { getUnitsOfMeasure } from './services/uom.js';
-import type { PartSearchResult } from './services/parts.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 const DEFAULT_PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
@@ -153,32 +152,66 @@ function sanitizePath(requestPath: string) {
   return relative;
 }
 
-async function handlePartSearch(req: IncomingMessage, res: ServerResponse, searchTerm: string) {
-  if (searchTerm.trim().length === 0) {
+function parseBooleanFlag(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+}
+
+type PartSearchFilters = {
+  partNumber: string;
+  description: string;
+  inStockOnly: boolean;
+};
+
+async function handlePartSearch(
+  req: IncomingMessage,
+  res: ServerResponse,
+  filters: PartSearchFilters,
+) {
+  const partNumber = filters.partNumber.trim();
+  const description = filters.description.trim();
+  const inStockOnly = filters.inStockOnly;
+
+  if (partNumber.length === 0 && description.length === 0 && !inStockOnly) {
     res.statusCode = 400;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ error: 'Search term is required.' }));
+    res.end(
+      JSON.stringify({ error: 'Provide a part number, description, or enable the In Stock filter.' }),
+    );
     return;
   }
 
   logger.info('Incoming part search request', {
-    searchTermLength: searchTerm.length,
-    searchTermPreview: searchTerm.trim().slice(0, 32),
+    partNumberLength: partNumber.length,
+    descriptionLength: description.length,
+    inStockOnly,
   });
 
   try {
-    const data = await searchParts(searchTerm);
+    const data = await searchParts({
+      partNumber,
+      description,
+      inStockOnly,
+    });
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ data }));
 
     logger.info('Part search completed', {
       resultCount: data.length,
-      searchTermLength: searchTerm.length,
+      partNumberLength: partNumber.length,
+      descriptionLength: description.length,
+      inStockOnly,
     });
   } catch (error) {
     logger.error('Part search failed', {
-      searchTermLength: searchTerm.length,
+      partNumberLength: partNumber.length,
+      descriptionLength: description.length,
+      inStockOnly,
       error: serializeError(error),
     });
     res.statusCode = 500;
@@ -318,7 +351,11 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
   }
 
   if (req.method === 'GET' && normalizedPath === '/api/parts') {
-    await handlePartSearch(req, res, url.searchParams.get('search') ?? '');
+    await handlePartSearch(req, res, {
+      partNumber: url.searchParams.get('partNumber') ?? '',
+      description: url.searchParams.get('description') ?? '',
+      inStockOnly: parseBooleanFlag(url.searchParams.get('inStock')),
+    });
     return;
   }
 

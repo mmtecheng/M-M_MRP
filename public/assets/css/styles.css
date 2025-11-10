@@ -397,6 +397,25 @@ a:focus {
   gap: 0.25rem;
 }
 
+.field--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field--checkbox input[type='checkbox'] {
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+
+.field--checkbox label {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
 .field label {
   font-size: 0.85rem;
   color: var(--gray-600);
