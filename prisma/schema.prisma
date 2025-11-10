@@ -1168,9 +1168,9 @@ model poheader {
   termscodes                              termscodes?        @relation(fields: [TermsCode], references: [TermsCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_TermsCodes_173")
   poshortages                             poshortages[]
   seriallotnumbers                        seriallotnumbers[]
-  supplieraddress                         supplieraddress?
-  supplieraddress                         supplieraddress?
-  supplieraddress                         supplieraddress?
+  supplieraddress_poheader_SupplierID_BillToAddress   supplieraddress? @relation("poheader_SupplierID_BillToAddressTosupplieraddress", fields: [SupplierID, BillToAddress], references: [SupplierID, AddressID], map: "fk_POHeader_SupplierAddress_117")
+  supplieraddress_poheader_SupplierID_ShipToAddress    supplieraddress? @relation("poheader_SupplierID_ShipToAddressTosupplieraddress", fields: [SupplierID, ShipToAddress], references: [SupplierID, AddressID], map: "fk_POHeader_SupplierAddress_118")
+  supplieraddress_poheader_SupplierID_SupplierAddress  supplieraddress? @relation("poheader_SupplierID_SupplierAddressTosupplieraddress", fields: [SupplierID, SupplierAddress], references: [SupplierID, AddressID], map: "fk_POHeader_SupplierAddress_119")
 
   @@index([CurrencyCode], map: "fk_POHeader_CurrencyCodes_014")
   @@index([DepartmentCode], map: "fk_POHeader_DepartmentCodes_034")
@@ -1583,9 +1583,9 @@ model supplieraddress {
   Country              String?          @db.VarChar(20)
   TaxCode              String?          @db.VarChar(10)
   SupplierAddress_PKey Int              @unique(map: "uniq_SupplierAddress_SupplierAddress_PKey") @default(autoincrement())
-  poheader             poheader         @relation(fields: [SupplierID, AddressID], references: [SupplierID, BillToAddress], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_POHeader_117")
-  poheader             poheader         @relation(fields: [SupplierID, AddressID], references: [SupplierID, ShipToAddress], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_POHeader_118")
-  poheader             poheader         @relation(fields: [SupplierID, AddressID], references: [SupplierID, SupplierAddress], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_POHeader_119")
+  poheader_supplieraddress_SupplierID_BillToAddress          poheader[]        @relation("poheader_SupplierID_BillToAddressTosupplieraddress")
+  poheader_supplieraddress_SupplierID_ShipToAddress          poheader[]        @relation("poheader_SupplierID_ShipToAddressTosupplieraddress")
+  poheader_supplieraddress_SupplierID_SupplierAddress        poheader[]        @relation("poheader_SupplierID_SupplierAddressTosupplieraddress")
   suppliercontacts     suppliercontacts @relation(fields: [AddressID, SupplierID], references: [AddressID, SupplierID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_SupplierContacts_150")
   suppliers            suppliers        @relation(fields: [SupplierID], references: [SupplierID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_Suppliers_153")
   taxcodes             taxcodes?        @relation(fields: [TaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_TaxCodes_171")
