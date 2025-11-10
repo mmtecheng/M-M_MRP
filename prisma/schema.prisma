@@ -10,9 +10,1884 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Prisma requires at least one model definition to generate a client.
-// This placeholder model ensures the Prisma Client is generated even though
-// the application uses raw SQL queries for data access.
-model PrismaPlaceholder {
-  id Int @id
+model audit {
+  AUDFILE    String?   @db.VarChar(8)
+  AUDKEY     String?   @db.VarChar(60)
+  AUDFIELD   String?   @db.VarChar(10)
+  AUDDATE    DateTime? @db.DateTime(0)
+  AUDTIME    Float?
+  AUDWASL    String?   @db.Text
+  AUDWASN    String?   @db.VarChar(60)
+  AUDISL     String?   @db.Text
+  AUDISN     String?   @db.VarChar(60)
+  AUDUSER    String?   @db.VarChar(10)
+  audit_PKey Int       @id @default(autoincrement())
+}
+
+model bom {
+  Assembly                             String           @db.VarChar(30)
+  Component                            String           @db.VarChar(30)
+  ItemSequence                         String?          @db.VarChar(10)
+  QuantityPer                          Float?           @default(0)
+  EffectiveDate                        DateTime?        @db.DateTime(0)
+  ObsoleteDate                         DateTime?        @db.DateTime(0)
+  BOMUOMCode                           String?          @db.VarChar(50)
+  Notes                                String?          @db.Text
+  BOM_PKey                             Int              @unique(map: "uniq_BOM_BOM_PKey") @default(autoincrement())
+  bom                                  bom              @relation("bomTobom", fields: [Assembly], references: [Component], onDelete: NoAction, onUpdate: NoAction, map: "fk_BOM_BOM_000")
+  other_bom                            bom[]            @relation("bomTobom")
+  partmaster_bom_AssemblyTopartmaster  partmaster       @relation("bom_AssemblyTopartmaster", fields: [Assembly], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_BOM_PartMaster_090")
+  partmaster_bom_ComponentTopartmaster partmaster       @relation("bom_ComponentTopartmaster", fields: [Component], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_BOM_PartMaster_091")
+  uomcodes                             uomcodes?        @relation(fields: [BOMUOMCode], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_BOM_UOMCodes_177")
+  refdesignators                       refdesignators[]
+
+  @@id([Assembly, Component])
+  @@index([BOMUOMCode], map: "fk_BOM_UOMCodes_177")
+  @@index([Component], map: "ix_fk_BOM_BOM_BOMBOM")
+  @@index([Component], map: "ix_fk_BOM_BOM_BOMBOM_Component")
+  @@index([Assembly, Component], map: "ix_fk_BOM_RefDesignators_BOMRefDesignators")
+  @@index([Assembly, Component], map: "ix_par_BOM_Assembly_Component")
+  @@index([Component], map: "ix_par_BOM_Component")
+  @@index([Component], map: "ix_par_fk_BOM_BOM_BOMBOM_Component")
+  @@index([Assembly, Component], map: "ix_par_fk_RefDesignators_BOM_BOMRefDesignators_Assembly_Componen")
+}
+
+model calendar {
+  DescText      String    @id @db.VarChar(40)
+  StartDate     DateTime? @db.DateTime(0)
+  EndDate       DateTime? @db.DateTime(0)
+  Calendar_PKey Int       @unique(map: "uniq_Calendar_Calendar_PKey") @default(autoincrement())
+}
+
+model commoditycodes {
+  CommodityCode       String       @id @db.VarChar(10)
+  DescText            String?      @db.VarChar(40)
+  EmployeeID          String?      @db.VarChar(10)
+  CommodityCodes_PKey Int          @unique(map: "uniq_CommodityCodes_CommodityCodes_PKey") @default(autoincrement())
+  employees           employees?   @relation(fields: [EmployeeID], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CommodityCodes_Employees_044")
+  partmaster          partmaster[]
+
+  @@index([EmployeeID], map: "fk_CommodityCodes_Employees_044")
+  @@index([CommodityCode], map: "ix_fk_CommodityCodes_PartMaster_CommodityCodesPartMaster")
+  @@index([CommodityCode], map: "ix_par_CommodityCodes_CommodityCode")
+  @@index([CommodityCode], map: "ix_par_fk_PartMaster_CommodityCodes_CommodityCodesPartMaster1_Co")
+  @@index([CommodityCode], map: "ix_par_fk_PartMaster_CommodityCodes_CommodityCodesPartMaster_Com")
+}
+
+model company {
+  CompanyName  String?      @db.VarChar(40)
+  Contact1     String?      @db.VarChar(30)
+  Contact2     String?      @db.VarChar(30)
+  Phone1       String?      @db.VarChar(30)
+  Phone2       String?      @db.VarChar(30)
+  FAX          String?      @db.VarChar(30)
+  Email        String?      @db.VarChar(50)
+  Phone1FMT    String?      @db.VarChar(30)
+  Phone2FMT    String?      @db.VarChar(30)
+  FAXFMT       String?      @db.VarChar(30)
+  RegionCode   String?      @db.VarChar(10)
+  VATRegNumber String?      @db.VarChar(15)
+  VATBranchID  String?      @db.VarChar(3)
+  Company_PKey Int          @id @default(autoincrement())
+  regioncodes  regioncodes? @relation(fields: [RegionCode], references: [RegionCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Company_RegionCodes_127")
+
+  @@index([RegionCode], map: "fk_Company_RegionCodes_127")
+}
+
+model companyaddress {
+  AddressID                                               String        @id @db.VarChar(10)
+  AddressLine1                                            String?       @db.VarChar(40)
+  AddressLine2                                            String?       @db.VarChar(40)
+  AddressLine3                                            String?       @db.VarChar(40)
+  AddressLine4                                            String?       @db.VarChar(40)
+  City                                                    String?       @db.VarChar(28)
+  State                                                   String?       @db.VarChar(3)
+  ZIPCode                                                 String?       @db.VarChar(9)
+  Postal                                                  String?       @db.VarChar(10)
+  Country                                                 String?       @db.VarChar(20)
+  ShipToFlag                                              Boolean?
+  BillToFlag                                              Boolean?
+  TaxCode                                                 String?       @db.VarChar(10)
+  CompanyAddress_PKey                                     Int           @unique(map: "uniq_CompanyAddress_CompanyAddress_PKey") @default(autoincrement())
+  taxcodes                                                taxcodes?     @relation(fields: [TaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_CompanyAddress_TaxCodes_154")
+  preferences_preferences_POBillToAddressTocompanyaddress preferences[] @relation("preferences_POBillToAddressTocompanyaddress")
+  preferences_preferences_POShipToAddressTocompanyaddress preferences[] @relation("preferences_POShipToAddressTocompanyaddress")
+
+  @@index([TaxCode], map: "fk_CompanyAddress_TaxCodes_154")
+  @@index([AddressID], map: "ix_par_CompanyAddress_AddressID")
+  @@index([AddressID], map: "ix_par_fk_Preferences_CompanyAddress_CompanyAddressPreferences1_")
+  @@index([AddressID], map: "ix_par_fk_Preferences_CompanyAddress_CompanyAddressPreferences_A")
+}
+
+model creditmemodetail {
+  CreditMemoNumber                                String           @db.VarChar(10)
+  CreditMemoLine                                  String           @db.VarChar(3)
+  SONumber                                        String?          @db.VarChar(10)
+  SOLine                                          String?          @db.VarChar(3)
+  PartNumber                                      String?          @db.VarChar(30)
+  Quantity                                        Float?
+  Price                                           Float?
+  SalesUOM                                        String?          @db.VarChar(10)
+  TaxableFlag                                     Boolean?
+  TaxCode2                                        String?          @db.VarChar(10)
+  TaxRate2                                        Float?
+  TaxFlag2                                        Boolean?
+  TaxCode3                                        String?          @db.VarChar(10)
+  TaxRate3                                        Float?
+  TaxFlag3                                        Boolean?
+  BaseTaxCode                                     String?          @db.VarChar(10)
+  BaseTaxRate                                     Float?
+  CreditMemoDetail_PKey                           Int              @unique(map: "uniq_CreditMemoDetail_CreditMemoDetail_PKey") @default(autoincrement())
+  creditmemoheader                                creditmemoheader @relation(fields: [CreditMemoNumber], references: [CreditMemoNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_CreditMemoDetail_CreditMemoHeader_007")
+  partmaster                                      partmaster?      @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_CreditMemoDetail_PartMaster_092")
+  taxcodes_creditmemodetail_TaxCode2Totaxcodes    taxcodes?        @relation("creditmemodetail_TaxCode2Totaxcodes", fields: [TaxCode2], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_CreditMemoDetail_TaxCodes_155")
+  taxcodes_creditmemodetail_TaxCode3Totaxcodes    taxcodes?        @relation("creditmemodetail_TaxCode3Totaxcodes", fields: [TaxCode3], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_CreditMemoDetail_TaxCodes_156")
+  taxcodes_creditmemodetail_BaseTaxCodeTotaxcodes taxcodes?        @relation("creditmemodetail_BaseTaxCodeTotaxcodes", fields: [BaseTaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_CreditMemoDetail_TaxCodes_157")
+  uomcodes                                        uomcodes?        @relation(fields: [SalesUOM], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_CreditMemoDetail_UOMCodes_178")
+  sodetail                                        sodetail?
+
+  @@id([CreditMemoNumber, CreditMemoLine])
+  @@index([PartNumber], map: "fk_CreditMemoDetail_PartMaster_092")
+  @@index([TaxCode2], map: "fk_CreditMemoDetail_TaxCodes_155")
+  @@index([TaxCode3], map: "fk_CreditMemoDetail_TaxCodes_156")
+  @@index([BaseTaxCode], map: "fk_CreditMemoDetail_TaxCodes_157")
+  @@index([SalesUOM], map: "fk_CreditMemoDetail_UOMCodes_178")
+  @@index([SONumber, SOLine], map: "ix_par_CreditMemoDetail_SONumber_SOLine")
+  @@index([SONumber, SOLine], map: "ix_par_fk_SODetail_CreditMemoDetail_CreditMemoDetailSODetail_SON")
+}
+
+model creditmemoheader {
+  CreditMemoNumber      String             @id @db.VarChar(10)
+  InvoiceNumber         String?            @db.VarChar(10)
+  CustomerID            String?            @db.VarChar(15)
+  SONumber              String?            @db.VarChar(10)
+  EnteredBy             String?            @db.VarChar(10)
+  ReturnDate            DateTime?          @db.DateTime(0)
+  FreightAmount         Float?
+  TrackingNumber        String?            @db.VarChar(30)
+  NumberOfPieces        Float?
+  Weight                String?            @db.VarChar(15)
+  Carrier               String?            @db.VarChar(20)
+  BillOfLading          String?            @db.VarChar(40)
+  Notes                 String?            @db.Text
+  UserDefined1          String?            @db.VarChar(20)
+  UserDefined2          String?            @db.VarChar(20)
+  TaxCode2              String?            @db.VarChar(50)
+  TaxCode3              String?            @db.VarChar(50)
+  BaseTaxCode           String?            @db.VarChar(50)
+  CreditMemoHeader_PKey Int                @unique(map: "uniq_CreditMemoHeader_CreditMemoHeader_PKey") @default(autoincrement())
+  creditmemodetail      creditmemodetail[]
+  customers             customers?         @relation(fields: [CustomerID], references: [CustomerID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CreditMemoHeader_Customers_023")
+  employees             employees?         @relation(fields: [EnteredBy], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CreditMemoHeader_Employees_045")
+  invoiceheader         invoiceheader?     @relation(fields: [InvoiceNumber], references: [InvoiceNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_CreditMemoHeader_InvoiceHeader_075")
+  soheader              soheader?          @relation(fields: [SONumber], references: [SONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_CreditMemoHeader_SOHeader_144")
+
+  @@index([CustomerID], map: "fk_CreditMemoHeader_Customers_023")
+  @@index([EnteredBy], map: "fk_CreditMemoHeader_Employees_045")
+  @@index([InvoiceNumber], map: "fk_CreditMemoHeader_InvoiceHeader_075")
+  @@index([SONumber], map: "fk_CreditMemoHeader_SOHeader_144")
+  @@index([CreditMemoNumber], map: "ix_par_CreditMemoHeader_CreditMemoNumber")
+  @@index([CreditMemoNumber], map: "ix_par_fk_CreditMemoDetail_CreditMemoHeader_CreditMemoHeaderCred")
+}
+
+model crpdetail {
+  WONumber         String?            @db.VarChar(10)
+  SequenceID       Int?               @default(0)
+  OperationCode    String?            @db.VarChar(10)
+  StartDateTime    DateTime?          @db.DateTime(0)
+  WorkCenterID     String?            @db.VarChar(10)
+  ShiftID          String?            @db.VarChar(10)
+  PartNumber       String?            @db.VarChar(30)
+  StartQuantity    Float?
+  MinutesUsed      Float?
+  StopDateTime     DateTime?          @db.DateTime(0)
+  SummaryDate      DateTime?          @db.DateTime(0)
+  CRPDetail_PKey   Int                @id @default(autoincrement())
+  crpheader        crpheader?         @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_CRPHeader_009")
+  crpsummary       crpsummary?        @relation(fields: [WorkCenterID, SummaryDate], references: [WorkCenterID, StartDate], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_CRPSummary_012")
+  partmaster       partmaster?        @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_PartMaster_093")
+  routers          routers?           @relation(fields: [PartNumber, SequenceID], references: [PartNumber, SequenceID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_Routers_133")
+  woheader         woheader?          @relation(fields: [WONumber], references: [WONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_WOHeader_187")
+  workcenters      workcenters?       @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_WorkCenters_192")
+  workcentershifts workcentershifts[]
+
+  @@index([WorkCenterID, SummaryDate], map: "fk_CRPDetail_CRPSummary_012")
+  @@index([PartNumber, SequenceID], map: "fk_CRPDetail_Routers_133")
+  @@index([WONumber], map: "fk_CRPDetail_WOHeader_187")
+  @@index([ShiftID], map: "ix_par_CRPDetail_ShiftID")
+  @@index([ShiftID], map: "ix_par_fk_WorkCenterShifts_CRPDetail_crpdWorkCenterShifts_ShiftI")
+}
+
+model crpheader {
+  WorkCenterID   String?      @db.VarChar(10)
+  LaborScheduled Boolean?
+  OverCapacity   Boolean?
+  CRPHeader_PKey Int          @id @default(autoincrement())
+  crpdetail      crpdetail[]
+  crpsummary     crpsummary[]
+  workcenters    workcenters?
+
+  @@index([WorkCenterID], map: "ix_par_CRPHeader_WorkCenterID")
+  @@index([WorkCenterID], map: "ix_par_fk_CRPDetail_CRPHeader_CRPHeaderCRPDetail_WorkCenterID")
+  @@index([WorkCenterID], map: "ix_par_fk_CRPSummary_CRPHeader_CRPHeaderCRPSummary_WorkCenterID")
+  @@index([WorkCenterID], map: "ix_par_fk_WorkCenters_CRPHeader_crphWorkCenters_WorkCenterID")
+}
+
+model crpsummary {
+  WorkCenterID    String?      @db.VarChar(10)
+  StartDate       DateTime?    @db.DateTime(0)
+  CapUsage        Float?
+  Capacity        Float?
+  CRPSummary_PKey Int          @id @default(autoincrement())
+  crpdetail       crpdetail[]
+  crpheader       crpheader?   @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPSummary_CRPHeader_010")
+  workcenters     workcenters? @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPSummary_WorkCenters_193")
+
+  @@index([WorkCenterID, StartDate], map: "ix_par_CRPSummary_WorkCenterID_StartDate")
+  @@index([WorkCenterID, StartDate], map: "ix_par_fk_CRPDetail_CRPSummary_CRPSummaryCRPDetail_WorkCenterID_")
+}
+
+model currencycodes {
+  CurrencyCode       String        @id @db.VarChar(10)
+  ExchangeRate       Float?
+  DescText           String?       @db.VarChar(40)
+  EURORate           Float?
+  EMUMember          Boolean?
+  CurrencySymbol     String?       @db.VarChar(6)
+  CurrencyCodes_PKey Int           @unique(map: "uniq_CurrencyCodes_CurrencyCodes_PKey") @default(autoincrement())
+  customers          customers[]
+  poheader           poheader[]
+  preferences        preferences[]
+  soheader           soheader[]
+  suppliers          suppliers[]
+
+  @@index([CurrencyCode], map: "ix_par_CurrencyCodes_CurrencyCode")
+  @@index([CurrencyCode], map: "ix_par_fk_Customers_CurrencyCodes_CurrencyCodesCustomers_Currenc")
+  @@index([CurrencyCode], map: "ix_par_fk_POHeader_CurrencyCodes_CurrencyCodesPOHeader_CurrencyC")
+  @@index([CurrencyCode], map: "ix_par_fk_Preferences_CurrencyCodes_CurrencyCodesPreferences_Cur")
+  @@index([CurrencyCode], map: "ix_par_fk_SOHeader_CurrencyCodes_CurrencyCodesSOHeader_CurrencyC")
+  @@index([CurrencyCode], map: "ix_par_fk_Suppliers_CurrencyCodes_CurrencyCodesSuppliers_Currenc")
+}
+
+model customeraddress {
+  CustomerID                                                  String             @db.VarChar(15)
+  AddressID                                                   String             @db.VarChar(6)
+  AddressLine1                                                String?            @db.VarChar(40)
+  AddressLine2                                                String?            @db.VarChar(40)
+  AddressLine3                                                String?            @db.VarChar(40)
+  AddressLine4                                                String?            @db.VarChar(40)
+  City                                                        String?            @db.VarChar(28)
+  State                                                       String?            @db.VarChar(3)
+  ZIPCode                                                     String?            @db.VarChar(9)
+  Postal                                                      String?            @db.VarChar(10)
+  Country                                                     String?            @db.VarChar(20)
+  ShipToFlag                                                  Boolean?
+  BillToFlag                                                  Boolean?
+  TaxCode                                                     String?            @db.VarChar(10)
+  CustomerAddress_PKey                                        Int                @unique(map: "uniq_CustomerAddress_CustomerAddress_PKey") @default(autoincrement())
+  customers                                                   customers          @relation(fields: [CustomerID], references: [CustomerID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CustomerAddress_Customers_024")
+  taxcodes                                                    taxcodes?          @relation(fields: [TaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_CustomerAddress_TaxCodes_158")
+  customercontacts                                            customercontacts[]
+  soheader_soheader_CustomerID_BillToAddressTocustomeraddress soheader[]         @relation("soheader_CustomerID_BillToAddressTocustomeraddress")
+  soheader_soheader_CustomerID_ShipToAddressTocustomeraddress soheader[]         @relation("soheader_CustomerID_ShipToAddressTocustomeraddress")
+
+  @@id([CustomerID, AddressID])
+  @@index([TaxCode], map: "fk_CustomerAddress_TaxCodes_158")
+  @@index([CustomerID, AddressID], map: "ix_par_CustomerAddress_CustomerID_AddressID")
+  @@index([CustomerID, AddressID], map: "ix_par_fk_CustomerContacts_CustomerAddress_CustomerAddressCustom")
+  @@index([CustomerID, AddressID], map: "ix_par_fk_SOHeader_CustomerAddress_CustomerAddressSOHeader2_Cust")
+  @@index([CustomerID, AddressID], map: "ix_par_fk_SOHeader_CustomerAddress_CustomerAddressSOHeader_Custo")
+}
+
+model customercontacts {
+  CustomerID            String          @db.VarChar(15)
+  AddressID             String          @db.VarChar(6)
+  ContactID             String          @db.VarChar(15)
+  Name                  String?         @db.VarChar(40)
+  Phone                 String?         @db.VarChar(30)
+  PhoneFMT              String?         @db.VarChar(30)
+  FAX                   String?         @db.VarChar(30)
+  FAXFMT                String?         @db.VarChar(30)
+  Email                 String?         @db.VarChar(50)
+  Notes                 String?         @db.Text
+  CustomerContacts_PKey Int             @unique(map: "uniq_CustomerContacts_CustomerContacts_PKey") @default(autoincrement())
+  customeraddress       customeraddress @relation(fields: [CustomerID, AddressID], references: [CustomerID, AddressID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CustomerContacts_CustomerAddress_018")
+  customers             customers       @relation(fields: [CustomerID], references: [CustomerID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CustomerContacts_Customers_025")
+
+  @@id([CustomerID, AddressID, ContactID])
+}
+
+model customerdisclevel {
+  CustomerDiscLevel      String                 @id @db.VarChar(15)
+  DescText               String?                @db.VarChar(40)
+  CustomerDiscLevel_PKey Int                    @unique(map: "uniq_CustomerDiscLevel_CustomerDiscLevel_PKey") @default(autoincrement())
+  customers              customers[]
+  pricebreakstructures   pricebreakstructures[]
+
+  @@index([CustomerDiscLevel], map: "ix_par_CustomerDiscLevel_CustomerDiscLevel")
+  @@index([CustomerDiscLevel], map: "ix_par_fk_Customers_CustomerDiscLevel_CustomerDiscLevelCustomers")
+  @@index([CustomerDiscLevel], map: "ix_par_fk_PriceBreakStructures_CustomerDiscLevel_CustomerDiscLev")
+}
+
+model customers {
+  CustomerID         String              @id @db.VarChar(15)
+  CustomerName       String?             @db.VarChar(40)
+  PriceCode          String?             @db.VarChar(10)
+  RegionCode         String?             @db.VarChar(10)
+  ShipHoldFlag       Boolean?
+  TermsCode          String?             @db.VarChar(10)
+  ShipViaCode        String?             @db.VarChar(10)
+  FOBCode            String?             @db.VarChar(10)
+  CurrencyCode       String?             @db.VarChar(10)
+  VATRegNumber       String?             @db.VarChar(15)
+  VATBranchID        String?             @db.VarChar(3)
+  DateAdded          DateTime?           @db.DateTime(0)
+  Notes              String?             @db.Text
+  ActiveFlag         Boolean?
+  CreditLimit        Float?
+  PriceDiscType      Float?
+  CustomerDiscLevel  String?             @db.VarChar(15)
+  UserDefined1       String?             @db.VarChar(10)
+  SalespersonID      String?             @db.VarChar(10)
+  Customers_PKey     Int                 @unique(map: "uniq_Customers_Customers_PKey") @default(autoincrement())
+  creditmemoheader   creditmemoheader[]
+  customeraddress    customeraddress[]
+  customercontacts   customercontacts[]
+  currencycodes      currencycodes?      @relation(fields: [CurrencyCode], references: [CurrencyCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Customers_CurrencyCodes_013")
+  customerdisclevel  customerdisclevel?  @relation(fields: [CustomerDiscLevel], references: [CustomerDiscLevel], onDelete: NoAction, onUpdate: NoAction, map: "fk_Customers_CustomerDiscLevel_021")
+  fobcodes           fobcodes?           @relation(fields: [FOBCode], references: [FOBCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Customers_FOBCodes_058")
+  pricediscountcodes pricediscountcodes? @relation(fields: [PriceCode], references: [PriceCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Customers_PriceDiscountCodes_121")
+  regioncodes        regioncodes?        @relation(fields: [RegionCode], references: [RegionCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Customers_RegionCodes_128")
+  shipviacodes       shipviacodes?       @relation(fields: [ShipViaCode], references: [ShipViaCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Customers_ShipViaCodes_139")
+  termscodes         termscodes?         @relation(fields: [TermsCode], references: [TermsCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Customers_TermsCodes_172")
+  soheader           soheader[]
+
+  @@index([CurrencyCode], map: "fk_Customers_CurrencyCodes_013")
+  @@index([CustomerDiscLevel], map: "fk_Customers_CustomerDiscLevel_021")
+  @@index([FOBCode], map: "fk_Customers_FOBCodes_058")
+  @@index([PriceCode], map: "fk_Customers_PriceDiscountCodes_121")
+  @@index([RegionCode], map: "fk_Customers_RegionCodes_128")
+  @@index([ShipViaCode], map: "fk_Customers_ShipViaCodes_139")
+  @@index([TermsCode], map: "fk_Customers_TermsCodes_172")
+  @@index([CustomerID], map: "ix_par_Customers_CustomerID")
+  @@index([CustomerID], map: "ix_par_fk_CreditMemoHeader_Customers_CustomersCreditMemoHeader_C")
+  @@index([CustomerID], map: "ix_par_fk_CustomerAddress_Customers_CustomersCustomerAddress_Cus")
+  @@index([CustomerID], map: "ix_par_fk_CustomerContacts_Customers_CustomersCustomerContacts_C")
+  @@index([CustomerID], map: "ix_par_fk_SOHeader_Customers_CustomersSOHeader_CustomerID")
+}
+
+model datadefinitions {
+  Name                 String  @db.VarChar(50)
+  Author               String? @db.VarChar(50)
+  Version              String? @db.VarChar(50)
+  ControlName          String? @db.VarChar(39)
+  PropertyBag          Bytes?  @db.Blob
+  CheckoutName         String? @db.VarChar(50)
+  DATADEFINITIONS_PKey Int     @id @default(autoincrement())
+  VersionNumber        Int?    @default(0)
+}
+
+model datautilitybatches {
+  ID       Int    @id @default(autoincrement())
+  DataType Int?   @default(0)
+  Name     String @db.VarChar(255)
+  BinData  Bytes? @db.Blob
+}
+
+model densitycodes {
+  DensityCode       String       @id @db.VarChar(10)
+  LengthFactor      Float?
+  WeightFactor      Float?
+  VolumeFactor      Float?
+  AreaFactor        Float?
+  DescText          String?      @db.VarChar(60)
+  DensityCodes_PKey Int          @unique(map: "uniq_DensityCodes_DensityCodes_PKey") @default(autoincrement())
+  partmaster        partmaster[]
+
+  @@index([DensityCode], map: "ix_par_DensityCodes_DensityCode")
+  @@index([DensityCode], map: "ix_par_fk_PartMaster_DensityCodes_DensityCodesPartMaster_Density")
+}
+
+model departmentcodes {
+  DepartmentCode                                                      String              @id @db.VarChar(10)
+  DescText                                                            String?             @db.VarChar(40)
+  AccountNumber                                                       String?             @db.VarChar(30)
+  NettableFlag                                                        Boolean?
+  InventoryFlag                                                       Boolean?
+  DepartmentCodes_PKey                                                Int                 @unique(map: "uniq_DepartmentCodes_DepartmentCodes_PKey") @default(autoincrement())
+  employees                                                           employees[]
+  inventorylots                                                       inventorylots[]
+  inventorytags                                                       inventorytags[]
+  partmaster_partmaster_DepartmentCodeTodepartmentcodes               partmaster[]        @relation("partmaster_DepartmentCodeTodepartmentcodes")
+  partmaster_partmaster_StockroomCodeTodepartmentcodes                partmaster[]        @relation("partmaster_StockroomCodeTodepartmentcodes")
+  podetail                                                            podetail[]
+  poheader                                                            poheader[]
+  preferences_preferences_DefaultAPDeptTodepartmentcodes              preferences[]       @relation("preferences_DefaultAPDeptTodepartmentcodes")
+  preferences_preferences_DefaultCOGSDeptTodepartmentcodes            preferences[]       @relation("preferences_DefaultCOGSDeptTodepartmentcodes")
+  soheader                                                            soheader[]
+  stocklocations                                                      stocklocations[]
+  transactiondetail_transactiondetail_ToDepartmentTodepartmentcodes   transactiondetail[] @relation("transactiondetail_ToDepartmentTodepartmentcodes")
+  transactiondetail_transactiondetail_FromDepartmentTodepartmentcodes transactiondetail[] @relation("transactiondetail_FromDepartmentTodepartmentcodes")
+
+  @@index([DepartmentCode], map: "ix_par_DepartmentCodes_DepartmentCode")
+  @@index([DepartmentCode], map: "ix_par_fk_Employees_DepartmentCodes_DepartmentCodesEmployees_Dep")
+  @@index([DepartmentCode], map: "ix_par_fk_InventoryLots_DepartmentCodes_DepartmentCodesInventory")
+  @@index([DepartmentCode], map: "ix_par_fk_InventoryTags_DepartmentCodes_DepartmentCodesInventory")
+  @@index([DepartmentCode], map: "ix_par_fk_PODetail_DepartmentCodes_DepartmentCodesPODetail_Depar")
+  @@index([DepartmentCode], map: "ix_par_fk_POHeader_DepartmentCodes_DepartmentCodesPOHeader_Depar")
+  @@index([DepartmentCode], map: "ix_par_fk_PartMaster_DepartmentCodes_DepartmentCodesInventoryMas")
+  @@index([DepartmentCode], map: "ix_par_fk_PartMaster_DepartmentCodes_DepartmentCodesPartMaster_D")
+  @@index([DepartmentCode], map: "ix_par_fk_Preferences_DepartmentCodes_DepartmentCodesPreferences")
+}
+
+model ecnclasscodes {
+  ECNClassCode       String      @id @db.VarChar(10)
+  DescText           String?     @db.VarChar(40)
+  ECNClassCodes_PKey Int         @unique(map: "uniq_ECNClassCodes_ECNClassCodes_PKey") @default(autoincrement())
+  ecnheader          ecnheader[]
+
+  @@index([ECNClassCode], map: "ix_par_ECNClassCodes_ECNClassCode")
+}
+
+model ecnheader {
+  ECNNumber      String          @id @db.VarChar(10)
+  ECNClassCode   String?         @db.VarChar(10)
+  ECNDate        DateTime?       @db.DateTime(0)
+  Notes          String?         @db.Text
+  EmployeeID     String?         @db.VarChar(10)
+  ECNHeader_PKey Int             @unique(map: "uniq_ECNHeader_ECNHeader_PKey") @default(autoincrement())
+  ecnclasscodes  ecnclasscodes?  @relation(fields: [ECNClassCode], references: [ECNClassCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_ECNHeader_ECNClassCodes_041")
+  employees      employees?      @relation(fields: [EmployeeID], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_ECNHeader_Employees_046")
+  ecnparts       ecnparts[]
+  partdocuments  partdocuments[]
+
+  @@index([ECNClassCode], map: "fk_ECNHeader_ECNClassCodes_041")
+  @@index([EmployeeID], map: "fk_ECNHeader_Employees_046")
+  @@index([ECNNumber], map: "ix_par_ECNHeader_ECNNumber")
+}
+
+model ecnparts {
+  ECNNumber     String     @db.VarChar(10)
+  PartNumber    String     @db.VarChar(30)
+  DescText      String?    @db.VarChar(60)
+  ECNParts_PKey Int        @unique(map: "uniq_ECNParts_ECNParts_PKey") @default(autoincrement())
+  ecnheader     ecnheader  @relation(fields: [ECNNumber], references: [ECNNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_ECNParts_ECNHeader_042")
+  partmaster    partmaster @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_ECNParts_PartMaster_094")
+
+  @@id([ECNNumber, PartNumber])
+  @@index([PartNumber], map: "fk_ECNParts_PartMaster_094")
+}
+
+model employees {
+  EmployeeID                                        String              @id @db.VarChar(10)
+  DepartmentCode                                    String?             @db.VarChar(10)
+  SSN                                               String?             @db.VarChar(11)
+  FirstName                                         String?             @db.VarChar(20)
+  MiddleInitial                                     String?             @db.VarChar(1)
+  LastName                                          String?             @db.VarChar(20)
+  Suffix                                            String?             @db.VarChar(4)
+  AddressLine1                                      String?             @db.VarChar(40)
+  AddressLine2                                      String?             @db.VarChar(40)
+  City                                              String?             @db.VarChar(28)
+  State                                             String?             @db.VarChar(3)
+  ZIP                                               String?             @db.VarChar(9)
+  Phone                                             String?             @db.VarChar(30)
+  PhoneFMT                                          String?             @db.VarChar(30)
+  FAX                                               String?             @db.VarChar(30)
+  FAXFMT                                            String?             @db.VarChar(30)
+  Email                                             String?             @db.VarChar(50)
+  WageRate                                          Float?
+  Postal                                            String?             @db.VarChar(10)
+  Country                                           String?             @db.VarChar(20)
+  IsSales                                           Boolean?
+  IsPurchasing                                      Boolean?
+  IsLabor                                           Boolean?
+  IsECN                                             Boolean?
+  IsTransactions                                    Boolean?
+  Notes                                             String?             @db.Text
+  CommissionRate                                    Float?
+  Active                                            Boolean?
+  PropertyBag                                       Bytes?              @db.Blob
+  Employees_PKey                                    Int                 @unique(map: "uniq_Employees_Employees_PKey") @default(autoincrement())
+  commoditycodes                                    commoditycodes[]
+  creditmemoheader                                  creditmemoheader[]
+  ecnheader                                         ecnheader[]
+  departmentcodes                                   departmentcodes?    @relation(fields: [DepartmentCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Employees_DepartmentCodes_028")
+  forecastheader                                    forecastheader[]
+  inventorytags_inventorytags_EnteredByToemployees  inventorytags[]     @relation("inventorytags_EnteredByToemployees")
+  inventorytags_inventorytags_EmployeeIDToemployees inventorytags[]     @relation("inventorytags_EmployeeIDToemployees")
+  labordistribution                                 labordistribution[]
+  partmaster                                        partmaster[]
+  poheader_poheader_EnteredByToemployees            poheader[]          @relation("poheader_EnteredByToemployees")
+  poheader_poheader_BuyerCodeToemployees            poheader[]          @relation("poheader_BuyerCodeToemployees")
+  soheader_soheader_SalesPersonToemployees          soheader[]          @relation("soheader_SalesPersonToemployees")
+  soheader_soheader_EnteredByToemployees            soheader[]          @relation("soheader_EnteredByToemployees")
+  transactionheader                                 transactionheader[]
+  woheader                                          woheader[]
+
+  @@index([DepartmentCode], map: "fk_Employees_DepartmentCodes_028")
+  @@index([EmployeeID], map: "ix_par_Employees_EmployeeID")
+}
+
+model employeesectiondetail {
+  EmployeeID                 String @db.VarChar(50)
+  SectionName                String @db.VarChar(50)
+  DetailName                 String @db.VarChar(50)
+  Rights                     Int?   @default(0)
+  EmployeeSectionDetail_PKey Int    @unique(map: "uniq_EmployeeSectionDetail_EmployeeSectionDetail_PKey") @default(autoincrement())
+
+  @@id([EmployeeID, SectionName, DetailName])
+}
+
+model employeesections {
+  EmployeeID            String @db.VarChar(50)
+  SectionName           String @db.VarChar(50)
+  Rights                Int?   @default(0)
+  EmployeeSections_PKey Int    @unique(map: "uniq_EmployeeSections_EmployeeSections_PKey") @default(autoincrement())
+
+  @@id([EmployeeID, SectionName])
+}
+
+model fobcodes {
+  FOBCode       String      @id @db.VarChar(10)
+  DescText      String?     @db.VarChar(40)
+  FOBCodes_PKey Int         @unique(map: "uniq_FOBCodes_FOBCodes_PKey") @default(autoincrement())
+  customers     customers[]
+  poheader      poheader[]
+  soheader      soheader[]
+  suppliers     suppliers[]
+
+  @@index([FOBCode], map: "ix_par_FOBCodes_FOBCode")
+}
+
+model forecastheader {
+  ForecastID          String          @id @db.VarChar(10)
+  EmployeeID          String?         @db.VarChar(10)
+  OriginationDate     DateTime?       @db.DateTime(0)
+  Notes               String?         @db.Text
+  MRPInputFlag        Boolean?
+  ForecastHeader_PKey Int             @unique(map: "uniq_ForecastHeader_ForecastHeader_PKey") @default(autoincrement())
+  employees           employees?      @relation(fields: [EmployeeID], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_ForecastHeader_Employees_047")
+  forecastparts       forecastparts[]
+
+  @@index([EmployeeID], map: "fk_ForecastHeader_Employees_047")
+  @@index([ForecastID], map: "ix_par_ForecastHeader_ForecastID")
+}
+
+model forecastparts {
+  ForecastID         String               @db.VarChar(10)
+  PartNumber         String               @db.VarChar(30)
+  TimeFence          Float?
+  ForecastParts_PKey Int                  @unique(map: "uniq_ForecastParts_ForecastParts_PKey") @default(autoincrement())
+  forecastheader     forecastheader       @relation(fields: [ForecastID], references: [ForecastID], onDelete: NoAction, onUpdate: NoAction, map: "fk_ForecastParts_ForecastHeader_062")
+  partmaster         partmaster           @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_ForecastParts_PartMaster_069")
+  forecastquantities forecastquantities[]
+
+  @@id([ForecastID, PartNumber])
+  @@index([PartNumber], map: "fk_ForecastParts_PartMaster_069")
+  @@index([ForecastID, PartNumber], map: "ix_par_ForecastParts_ForecastID_PartNumber")
+}
+
+model forecastquantities {
+  ForecastID              String        @db.VarChar(10)
+  PartNumber              String        @db.VarChar(30)
+  QuantityID              Int           @default(0)
+  ForecastStartDate       DateTime?     @db.DateTime(0)
+  ForecastEndDate         DateTime?     @db.DateTime(0)
+  ForecastQuantity        Float?
+  ForecastQuantities_PKey Int           @unique(map: "uniq_ForecastQuantities_ForecastQuantities_PKey") @default(autoincrement())
+  forecastparts           forecastparts @relation(fields: [ForecastID, PartNumber], references: [ForecastID, PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_ForecastQuantities_ForecastParts_063")
+  partmaster              partmaster    @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_ForecastQuantities_PartMaster_095")
+
+  @@id([ForecastID, PartNumber, QuantityID])
+  @@index([PartNumber], map: "fk_ForecastQuantities_PartMaster_095")
+}
+
+model icncodes {
+  ICNCode        String           @id @db.VarChar(10)
+  DescText       String?          @db.VarChar(40)
+  ICNCodes_PKey  Int              @unique(map: "uniq_ICNCodes_ICNCodes_PKey") @default(autoincrement())
+  intrastatrates intrastatrates[]
+  partmaster     partmaster[]
+
+  @@index([ICNCode], map: "ix_par_ICNCodes_ICNCode")
+}
+
+model intrastatrates {
+  ICNCode             String          @db.VarChar(10)
+  RegionCode          String          @db.VarChar(10)
+  TaxCode             String?         @db.VarChar(10)
+  IntrastatRates_PKey Int             @unique(map: "uniq_IntrastatRates_IntrastatRates_PKey") @default(autoincrement())
+  icncodes            icncodes        @relation(fields: [ICNCode], references: [ICNCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_IntrastatRates_ICNCodes_064")
+  intrastatreport     intrastatreport @relation(fields: [RegionCode, ICNCode], references: [RegionCode, ICNCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_IntrastatRates_IntrastatReport_066")
+  regioncodes         regioncodes     @relation(fields: [RegionCode], references: [RegionCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_IntrastatRates_RegionCodes_129")
+  taxcodes            taxcodes?       @relation(fields: [TaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_IntrastatRates_TaxCodes_159")
+
+  @@id([ICNCode, RegionCode])
+  @@index([RegionCode, ICNCode], map: "fk_IntrastatRates_IntrastatReport_066")
+  @@index([TaxCode], map: "fk_IntrastatRates_TaxCodes_159")
+}
+
+model intrastatreport {
+  TransactionID        Int             @id
+  RegionCode           String?         @db.VarChar(10)
+  ICNCode              String?         @db.VarChar(10)
+  LineNumber           String?         @db.VarChar(3)
+  TransactionDate      DateTime?       @db.DateTime(0)
+  TaxRate              Float?
+  SONumber             String?         @db.VarChar(10)
+  PONumber             String?         @db.VarChar(10)
+  Cost                 Float?
+  VATRegNumber         String?         @db.VarChar(15)
+  VATBranchID          String?         @db.VarChar(3)
+  IntrastatReport_PKey Int             @unique(map: "uniq_IntrastatReport_IntrastatReport_PKey") @default(autoincrement())
+  intrastatrates       intrastatrates?
+
+  @@index([RegionCode, ICNCode], map: "ix_par_IntrastatReport_RegionCode_ICNCode")
+}
+
+model inventorylots {
+  PartNumber         String            @db.VarChar(30)
+  DepartmentCode     String            @db.VarChar(10)
+  LocationCode       String            @db.VarChar(10)
+  SNLotNumber        String            @db.VarChar(20)
+  JobNumber          String            @db.VarChar(15)
+  DateReceived       DateTime?         @db.DateTime(0)
+  Quantity           Float?
+  MaterialCost       Float?
+  InventoryLots_PKey Int               @unique(map: "uniq_InventoryLots_InventoryLots_PKey") @default(autoincrement())
+  departmentcodes    departmentcodes   @relation(fields: [DepartmentCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_InventoryLots_DepartmentCodes_029")
+  jobmaster          jobmaster         @relation(fields: [JobNumber], references: [JobNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_InventoryLots_JobMaster_078")
+  partmaster         partmaster        @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_InventoryLots_PartMaster_070")
+  seriallotnumbers   seriallotnumbers?
+  stocklocations     stocklocations?
+
+  @@id([PartNumber, DepartmentCode, LocationCode, SNLotNumber, JobNumber])
+  @@index([JobNumber], map: "fk_InventoryLots_JobMaster_078")
+  @@index([DepartmentCode, LocationCode], map: "ix_par_InventoryLots_DepartmentCode_LocationCode")
+  @@index([PartNumber, SNLotNumber], map: "ix_par_InventoryLots_PartNumber_SNLotNumber")
+}
+
+model inventorytags {
+  TagNumber                                     String            @id @db.VarChar(6)
+  PartNumber                                    String?           @db.VarChar(30)
+  DepartmentCode                                String?           @db.VarChar(10)
+  LocationCode                                  String?           @db.VarChar(10)
+  SNLotNumber                                   String?           @db.VarChar(20)
+  JobNumber                                     String?           @db.VarChar(15)
+  InventoryQuantity                             Float?
+  CountQuantity                                 Float?
+  EnteredBy                                     String?           @db.VarChar(10)
+  EmployeeID                                    String?           @db.VarChar(10)
+  ClosedFlag                                    Boolean?
+  InventoryTags_PKey                            Int               @unique(map: "uniq_InventoryTags_InventoryTags_PKey") @default(autoincrement())
+  IsCounted                                     Boolean?          @default(false)
+  departmentcodes                               departmentcodes?  @relation(fields: [DepartmentCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_InventoryTags_DepartmentCodes_031")
+  employees_inventorytags_EnteredByToemployees  employees?        @relation("inventorytags_EnteredByToemployees", fields: [EnteredBy], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_InventoryTags_Employees_048")
+  employees_inventorytags_EmployeeIDToemployees employees?        @relation("inventorytags_EmployeeIDToemployees", fields: [EmployeeID], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_InventoryTags_Employees_049")
+  jobmaster                                     jobmaster?        @relation(fields: [JobNumber], references: [JobNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_InventoryTags_JobMaster_079")
+  partmaster                                    partmaster?       @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_InventoryTags_PartMaster_096")
+  seriallotnumbers                              seriallotnumbers?
+  stocklocations                                stocklocations?
+
+  @@index([EnteredBy], map: "fk_InventoryTags_Employees_048")
+  @@index([EmployeeID], map: "fk_InventoryTags_Employees_049")
+  @@index([JobNumber], map: "fk_InventoryTags_JobMaster_079")
+  @@index([DepartmentCode, LocationCode], map: "ix_par_InventoryTags_DepartmentCode_LocationCode")
+  @@index([PartNumber, SNLotNumber], map: "ix_par_InventoryTags_PartNumber_SNLotNumber")
+}
+
+model invoicedetail {
+  InvoiceNumber                                String              @db.VarChar(10)
+  InvoiceLine                                  String              @db.VarChar(3)
+  SONumber                                     String?             @db.VarChar(10)
+  SOLine                                       String?             @db.VarChar(3)
+  PartNumber                                   String?             @db.VarChar(30)
+  Quantity                                     Float?
+  Price                                        Float?
+  SalesUOM                                     String?             @db.VarChar(10)
+  TaxableFlag                                  Boolean?
+  TaxCode2                                     String?             @db.VarChar(10)
+  TaxRate2                                     Float?
+  TaxFlag2                                     Boolean?
+  TaxCode3                                     String?             @db.VarChar(10)
+  TaxRate3                                     Float?
+  TaxFlag3                                     Boolean?
+  BaseTaxCode                                  String?             @db.VarChar(10)
+  BaseTaxRate                                  Float?
+  InvoiceDetail_PKey                           Int                 @unique(map: "uniq_InvoiceDetail_InvoiceDetail_PKey") @default(autoincrement())
+  invoiceheader                                invoiceheader       @relation(fields: [InvoiceNumber], references: [InvoiceNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_InvoiceDetail_InvoiceHeader_076")
+  partmaster                                   partmaster?         @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_InvoiceDetail_PartMaster_097")
+  taxcodes_invoicedetail_BaseTaxCodeTotaxcodes taxcodes?           @relation("invoicedetail_BaseTaxCodeTotaxcodes", fields: [BaseTaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_InvoiceDetail_TaxCodes_160")
+  taxcodes_invoicedetail_TaxCode3Totaxcodes    taxcodes?           @relation("invoicedetail_TaxCode3Totaxcodes", fields: [TaxCode3], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_InvoiceDetail_TaxCodes_161")
+  taxcodes_invoicedetail_TaxCode2Totaxcodes    taxcodes?           @relation("invoicedetail_TaxCode2Totaxcodes", fields: [TaxCode2], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_InvoiceDetail_TaxCodes_162")
+  uomcodes                                     uomcodes?           @relation(fields: [SalesUOM], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_InvoiceDetail_UOMCodes_179")
+  sodetail                                     sodetail?
+  transactiondetail                            transactiondetail[]
+
+  @@id([InvoiceNumber, InvoiceLine])
+  @@index([PartNumber], map: "fk_InvoiceDetail_PartMaster_097")
+  @@index([BaseTaxCode], map: "fk_InvoiceDetail_TaxCodes_160")
+  @@index([TaxCode3], map: "fk_InvoiceDetail_TaxCodes_161")
+  @@index([TaxCode2], map: "fk_InvoiceDetail_TaxCodes_162")
+  @@index([SalesUOM], map: "fk_InvoiceDetail_UOMCodes_179")
+  @@index([InvoiceLine], map: "ix_par_InvoiceDetail_InvoiceLine")
+  @@index([SONumber, SOLine], map: "ix_par_InvoiceDetail_SONumber_SOLine")
+}
+
+model invoiceheader {
+  InvoiceNumber      String              @id @db.VarChar(10)
+  CustomerID         String?             @db.VarChar(15)
+  SONumber           String?             @db.VarChar(10)
+  EnteredBy          String?             @db.VarChar(10)
+  ShipmentDate       DateTime?           @db.DateTime(0)
+  FreightAmount      Float?
+  TrackingNumber     String?             @db.VarChar(30)
+  NumberOfPieces     Float?
+  Weight             String?             @db.VarChar(15)
+  Carrier            String?             @db.VarChar(20)
+  BillOfLading       String?             @db.VarChar(40)
+  Notes              String?             @db.Text
+  UserDefined1       String?             @db.VarChar(20)
+  UserDefined2       String?             @db.VarChar(20)
+  InvoiceHeader_PKey Int                 @unique(map: "uniq_InvoiceHeader_InvoiceHeader_PKey") @default(autoincrement())
+  creditmemoheader   creditmemoheader[]
+  invoicedetail      invoicedetail[]
+  transactionheader  transactionheader[]
+
+  @@index([InvoiceNumber], map: "ix_par_InvoiceHeader_InvoiceNumber")
+}
+
+model isc {
+  ISC      String  @id @db.VarChar(1)
+  DescText String? @db.VarChar(40)
+}
+
+model jobmaster {
+  JobNumber      String          @id @db.VarChar(15)
+  DescText       String?         @db.VarChar(60)
+  ClosedFlag     Boolean?
+  UserDefined1   String?         @db.VarChar(10)
+  UserDefined2   String?         @db.VarChar(10)
+  JobMaster_PKey Int             @unique(map: "uniq_JobMaster_JobMaster_PKey") @default(autoincrement())
+  inventorylots  inventorylots[]
+  inventorytags  inventorytags[]
+  mrpjobs        mrpjobs[]
+  partdocuments  partdocuments[]
+  podetail       podetail[]
+  soheader       soheader[]
+  woheader       woheader[]
+
+  @@index([JobNumber], map: "ix_par_JobMaster_JobNumber")
+}
+
+model labordistribution {
+  WONumber               String     @db.VarChar(10)
+  LaborID                Int        @default(0)
+  PartNumber             String?    @db.VarChar(30)
+  SequenceID             Int?       @default(0)
+  EmployeeID             String?    @db.VarChar(10)
+  StartDate              DateTime?  @db.DateTime(0)
+  StopDate               DateTime?  @db.DateTime(0)
+  QuantityCompleted      Float?
+  AccountNumber          String?    @db.VarChar(30)
+  WageRate               Float?
+  QuantityScrapped       Float?     @default(0)
+  ScrapAccount           String?    @db.VarChar(30)
+  LaborDistribution_PKey Int        @unique(map: "uniq_LaborDistribution_LaborDistribution_PKey") @default(autoincrement())
+  employees              employees? @relation(fields: [EmployeeID], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_LaborDistribution_Employees_050")
+  routers                routers?   @relation(fields: [PartNumber, SequenceID], references: [PartNumber, SequenceID], onDelete: NoAction, onUpdate: NoAction, map: "fk_LaborDistribution_Routers_134")
+  woheader               woheader   @relation(fields: [WONumber], references: [WONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_LaborDistribution_WOHeader_188")
+
+  @@id([WONumber, LaborID])
+  @@index([EmployeeID], map: "fk_LaborDistribution_Employees_050")
+  @@index([PartNumber, SequenceID], map: "fk_LaborDistribution_Routers_134")
+}
+
+model licenseinfo {
+  ControlName      String? @db.VarChar(50)
+  License          String? @db.VarChar(50)
+  LICENSEINFO_PKey Int     @id @default(autoincrement())
+}
+
+model mrpjobs {
+  MRPHeaderID  Int?          @default(0)
+  MRPJobID     Int?          @default(0)
+  Priority     Int?          @default(0)
+  JobNumber    String?       @db.VarChar(15)
+  PartNumber   String?       @db.VarChar(30)
+  MRPJobs_PKey Int           @id @default(autoincrement())
+  OnHand       Float?        @default(0)
+  jobmaster    jobmaster?    @relation(fields: [JobNumber], references: [JobNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPJobs_JobMaster_080")
+  mrpparts     mrpparts?     @relation(fields: [MRPHeaderID], references: [MRPHeaderID], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPJobs_MRPParts_087")
+  mrpplanning  mrpplanning[]
+
+  @@index([JobNumber], map: "fk_MRPJobs_JobMaster_080")
+  @@index([MRPHeaderID, MRPJobID], map: "ix_par_MRPJobs_MRPHeaderID_MRPJobID")
+}
+
+model mrpparts {
+  MRPHeaderID   Int?        @default(0)
+  Priority      Int?        @default(0)
+  PartNumber    String?     @db.VarChar(30)
+  ISC           String?     @db.VarChar(1)
+  OMC           String?     @db.VarChar(1)
+  SafetyStock   Float?      @default(0)
+  YieldFactor   Float?
+  OrderQuantity Float?
+  LeadTime      Float?
+  OrderMultiple Float?
+  Planner       String?     @db.VarChar(10)
+  MRPParts_PKey Int         @id @default(autoincrement())
+  mrpjobs       mrpjobs[]
+  partmaster    partmaster? @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPParts_PartMaster_098")
+
+  @@index([PartNumber], map: "fk_MRPParts_PartMaster_098")
+  @@index([MRPHeaderID], map: "ix_par_MRPParts_MRPHeaderID")
+}
+
+model mrpplanning {
+  MRPHeaderID      Int?      @default(0)
+  MRPJobID         Int?      @default(0)
+  PartNumber       String?   @db.VarChar(30)
+  JobNumber        String?   @db.VarChar(15)
+  PostType         Int?      @default(0)
+  Priority         Int?      @default(0)
+  StartDate        DateTime? @db.DateTime(0)
+  ForecastEndDate  DateTime? @db.DateTime(0)
+  RequiredDate     DateTime? @db.DateTime(0)
+  Reference        String?   @db.VarChar(10)
+  ReferenceLine    String?   @db.VarChar(3)
+  StartQuantity    Float?    @default(0)
+  RequiredQuantity Float?
+  Balance          Float?    @default(0)
+  Action           Int?      @default(0)
+  Pegging          String?   @db.VarChar(50)
+  MoveDate         DateTime? @db.DateTime(0)
+  BalanceSortOrder Int?      @default(0)
+  MRPPlanningID    Int       @id @default(autoincrement())
+  mrpjobs          mrpjobs?  @relation(fields: [MRPHeaderID, MRPJobID], references: [MRPHeaderID, MRPJobID], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_MRPJobs_088")
+  poheader         poheader? @relation(fields: [Reference], references: [PONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_POHeader_112")
+  soheader         soheader? @relation(fields: [Reference], references: [SONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_SOHeader_145")
+  woheader         woheader? @relation(fields: [Reference], references: [WONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_WOHeader_189")
+  podetail         podetail?
+  sodetail         sodetail?
+
+  @@index([MRPHeaderID, MRPJobID], map: "fk_MRPPlanning_MRPJobs_088")
+  @@index([Reference, ReferenceLine], map: "ix_par_MRPPlanning_Reference_ReferenceLine")
+}
+
+model omc {
+  OMC      String  @id @db.VarChar(1)
+  DescText String? @db.VarChar(40)
+}
+
+model operationcodes {
+  OperationCode       String    @id @db.VarChar(10)
+  DescText            String?   @db.VarChar(40)
+  OperationCodes_PKey Int       @unique(map: "uniq_OperationCodes_OperationCodes_PKey") @default(autoincrement())
+  routers             routers[]
+
+  @@index([OperationCode], map: "ix_par_OperationCodes_OperationCode")
+}
+
+model partdocuments {
+  PartNumber         String     @db.VarChar(30)
+  DocumentID         String     @db.VarChar(15)
+  DocumentLocation   String?    @db.VarChar(5)
+  DocumentRevision   String?    @db.VarChar(4)
+  DocumentSize       String?    @db.VarChar(2)
+  DescText           String?    @db.VarChar(60)
+  ECNNumber          String?    @db.VarChar(10)
+  EffectiveDate      DateTime?  @db.DateTime(0)
+  ObsoleteDate       DateTime?  @db.DateTime(0)
+  JobNumber          String?    @db.VarChar(15)
+  Notes              String?    @db.Text
+  PartDocuments_PKey Int        @unique(map: "uniq_PartDocuments_PartDocuments_PKey") @default(autoincrement())
+  DocumentPath       String?    @db.VarChar(65)
+  ecnheader          ecnheader? @relation(fields: [ECNNumber], references: [ECNNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartDocuments_ECNHeader_043")
+  jobmaster          jobmaster? @relation(fields: [JobNumber], references: [JobNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartDocuments_JobMaster_081")
+  partmaster         partmaster @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartDocuments_PartMaster_099")
+
+  @@id([PartNumber, DocumentID])
+  @@index([ECNNumber], map: "fk_PartDocuments_ECNHeader_043")
+  @@index([JobNumber], map: "fk_PartDocuments_JobMaster_081")
+}
+
+model partmaster {
+  PartNumber                                                 String               @id @db.VarChar(30)
+  Revision                                                   String?              @db.VarChar(4)
+  DescText                                                   String?              @db.VarChar(60)
+  StockUOM                                                   String?              @db.VarChar(10)
+  DensityCode                                                String?              @db.VarChar(10)
+  BOMLevel                                                   Float?
+  GraphicPath                                                String?              @db.VarChar(65)
+  Dimension                                                  String?              @db.VarChar(40)
+  Weight                                                     String?              @db.VarChar(15)
+  UserDefined1                                               String?              @db.VarChar(10)
+  EnteredBy                                                  String?              @db.VarChar(10)
+  DateAdded                                                  DateTime?            @db.DateTime(0)
+  EngNotes                                                   String?              @db.Text
+  ISC                                                        String?              @db.VarChar(1)
+  OMC                                                        String?              @db.VarChar(1)
+  DepartmentCode                                             String?              @db.VarChar(10)
+  StockroomCode                                              String?              @db.VarChar(10)
+  LocationCode                                               String?              @db.VarChar(10)
+  UOMPurchase                                                String?              @db.VarChar(10)
+  LeadTime                                                   Float?
+  OrderMultiple                                              Float?
+  YieldFactor                                                Float?
+  SafetyStock                                                Float?
+  OrderQuantity                                              Float?
+  DefaultPOCost                                              Float?
+  ListPrice                                                  Float?
+  SUOCode                                                    String?              @db.VarChar(10)
+  CommodityCode                                              String?              @db.VarChar(10)
+  ICNCode                                                    String?              @db.VarChar(10)
+  ProductClass                                               String?              @db.VarChar(10)
+  ProductPriceCode                                           String?              @db.VarChar(10)
+  SpecialStorage                                             Boolean?
+  ShelfLife                                                  Float?
+  StandardHours                                              Float?
+  PartCommFlag                                               Boolean?
+  PartCommRate                                               Float?
+  TaxableFlag                                                Boolean?
+  TaxCode                                                    String?              @db.VarChar(10)
+  UserDefined2                                               String?              @db.VarChar(10)
+  LastXactionDate                                            DateTime?            @db.DateTime(0)
+  YTDUsage                                                   Float?
+  ABCCode                                                    String?              @db.VarChar(1)
+  ABCDollarUsage                                             Float?
+  ABCPartPercent                                             Float?
+  ABCDollarPercent                                           Float?
+  LastCountDate                                              DateTime?            @db.DateTime(0)
+  GenerateTagFlag                                            Boolean?
+  STDMaterialCost                                            Float?
+  STDBurdenCost                                              Float?
+  STDLaborCost                                               Float?
+  STDSetUpCost                                               Float?
+  STDSubContCost                                             Float?
+  CostRevisionDate                                           DateTime?            @db.DateTime(0)
+  MaterialCost                                               Float?
+  LaborCost                                                  Float?
+  BurdenCost                                                 Float?
+  SetUpCost                                                  Float?
+  SubContCost                                                Float?
+  Cost                                                       Float?
+  PartMaster_PKey                                            Int                  @unique(map: "uniq_PartMaster_PartMaster_PKey") @default(autoincrement())
+  bom_bom_AssemblyTopartmaster                               bom[]                @relation("bom_AssemblyTopartmaster")
+  bom_bom_ComponentTopartmaster                              bom[]                @relation("bom_ComponentTopartmaster")
+  creditmemodetail                                           creditmemodetail[]
+  crpdetail                                                  crpdetail[]
+  ecnparts                                                   ecnparts[]
+  forecastparts                                              forecastparts[]
+  forecastquantities                                         forecastquantities[]
+  inventorylots                                              inventorylots[]
+  inventorytags                                              inventorytags[]
+  invoicedetail                                              invoicedetail[]
+  mrpparts                                                   mrpparts[]
+  partdocuments                                              partdocuments[]
+  commoditycodes                                             commoditycodes?      @relation(fields: [CommodityCode], references: [CommodityCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_CommodityCodes_002")
+  densitycodes                                               densitycodes?        @relation(fields: [DensityCode], references: [DensityCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_DensityCodes_027")
+  departmentcodes_partmaster_DepartmentCodeTodepartmentcodes departmentcodes?     @relation("partmaster_DepartmentCodeTodepartmentcodes", fields: [DepartmentCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_DepartmentCodes_030")
+  departmentcodes_partmaster_StockroomCodeTodepartmentcodes  departmentcodes?     @relation("partmaster_StockroomCodeTodepartmentcodes", fields: [StockroomCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_DepartmentCodes_032")
+  employees                                                  employees?           @relation(fields: [EnteredBy], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_Employees_051")
+  icncodes                                                   icncodes?            @relation(fields: [ICNCode], references: [ICNCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_ICNCodes_065")
+  productclasscodes                                          productclasscodes?   @relation(fields: [ProductClass], references: [ProductClass], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_ProductClassCodes_123")
+  productdisccodes                                           productdisccodes?    @relation(fields: [ProductPriceCode], references: [ProductPriceCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_ProductDiscCodes_125")
+  suocodes                                                   suocodes?            @relation(fields: [SUOCode], references: [SUOCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_SUOCodes_149")
+  taxcodes                                                   taxcodes?            @relation(fields: [TaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_TaxCodes_163")
+  uomcodes_partmaster_StockUOMTouomcodes                     uomcodes?            @relation("partmaster_StockUOMTouomcodes", fields: [StockUOM], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_UOMCodes_180")
+  uomcodes_partmaster_UOMPurchaseTouomcodes                  uomcodes?            @relation("partmaster_UOMPurchaseTouomcodes", fields: [UOMPurchase], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartMaster_UOMCodes_181")
+  partxreference                                             partxreference[]
+  pipissues                                                  pipissues[]
+  podetail                                                   podetail[]
+  poshortages                                                poshortages[]
+  routers                                                    routers[]
+  seriallotnumbers                                           seriallotnumbers[]
+  sodetail                                                   sodetail[]
+  stocklocations                                             stocklocations[]
+  wipissues                                                  wipissues[]
+  woheader                                                   woheader[]
+
+  @@index([CommodityCode], map: "fk_PartMaster_CommodityCodes_003")
+  @@index([DensityCode], map: "fk_PartMaster_DensityCodes_027")
+  @@index([DepartmentCode], map: "fk_PartMaster_DepartmentCodes_030")
+  @@index([StockroomCode], map: "fk_PartMaster_DepartmentCodes_032")
+  @@index([EnteredBy], map: "fk_PartMaster_Employees_051")
+  @@index([ICNCode], map: "fk_PartMaster_ICNCodes_065")
+  @@index([ProductClass], map: "fk_PartMaster_ProductClassCodes_123")
+  @@index([ProductPriceCode], map: "fk_PartMaster_ProductDiscCodes_125")
+  @@index([SUOCode], map: "fk_PartMaster_SUOCodes_149")
+  @@index([TaxCode], map: "fk_PartMaster_TaxCodes_163")
+  @@index([StockUOM], map: "fk_PartMaster_UOMCodes_180")
+  @@index([UOMPurchase], map: "fk_PartMaster_UOMCodes_181")
+  @@index([LocationCode], map: "ix_par_PartMaster_LocationCode")
+  @@index([PartNumber], map: "ix_par_PartMaster_PartNumber")
+}
+
+model partxreference {
+  PartNumber          String     @db.VarChar(30)
+  PartXReference      String     @db.VarChar(40)
+  SupplierID          String     @db.VarChar(15)
+  XRefDescText        String?    @db.VarChar(60)
+  SupplierRating      Float?
+  SupplierLeadtime    Float?
+  ApprovedSource      Boolean?
+  SupplierPrice       Float?
+  UserDefined1        String?    @db.VarChar(10)
+  UserDefined2        String?    @db.VarChar(10)
+  PartXReference_PKey Int        @unique(map: "uniq_PartXReference_PartXReference_PKey") @default(autoincrement())
+  podetail            podetail   @relation(fields: [PartNumber, PartXReference], references: [PartNumber, PartXReference], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartXReference_PODetail_111")
+  partmaster          partmaster @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartXReference_PartMaster_100")
+  sodetail            sodetail   @relation(fields: [PartNumber, PartXReference], references: [PartNumber, PartXReference], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartXReference_SODetail_143")
+  suppliers           suppliers  @relation(fields: [SupplierID], references: [SupplierID], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartXReference_Suppliers_151")
+
+  @@id([PartNumber, PartXReference, SupplierID])
+  @@index([SupplierID], map: "fk_PartXReference_Suppliers_151")
+}
+
+model pipissues {
+  PONumber         String            @db.VarChar(10)
+  POLine           String            @db.VarChar(3)
+  IssueID          Int               @default(0)
+  PartNumber       String?           @db.VarChar(30)
+  DepartmentCode   String?           @db.VarChar(10)
+  LocationCode     String?           @db.VarChar(10)
+  SNLotNumber      String?           @db.VarChar(20)
+  JobNumber        String?           @db.VarChar(15)
+  QuantityRequired Float?
+  MaterialCost     Float?
+  UOMCode          String?           @db.VarChar(10)
+  PIPIssues_PKey   Int               @unique(map: "uniq_PIPIssues_PIPIssues_PKey") @default(autoincrement())
+  QuantityReleased Float?            @default(0)
+  QuantityScrapped Float?            @default(0)
+  poheader         poheader          @relation(fields: [PONumber], references: [PONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PIPIssues_POHeader_113")
+  partmaster       partmaster?       @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PIPIssues_PartMaster_102")
+  seriallotnumbers seriallotnumbers? @relation(fields: [PartNumber, SNLotNumber], references: [PartNumber, SNLOTNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PIPIssues_SerialLotNumbers_135")
+  uomcodes         uomcodes?         @relation(fields: [UOMCode], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PIPIssues_UOMCodes_183")
+  podetail         podetail?
+
+  @@id([PONumber, POLine, IssueID])
+  @@index([PartNumber, SNLotNumber], map: "fk_PIPIssues_SerialLotNumbers_135")
+  @@index([UOMCode], map: "fk_PIPIssues_UOMCodes_183")
+  @@index([PONumber, POLine], map: "ix_par_PIPIssues_PONumber_POLine")
+}
+
+model podetail {
+  PONumber                                String           @db.VarChar(10)
+  POLine                                  String           @db.VarChar(3)
+  TaxableFlag                             Boolean?
+  PartNumber                              String?          @db.VarChar(30)
+  Revision                                String?          @db.VarChar(4)
+  PartXReference                          String?          @db.VarChar(40)
+  PurchaseUOM                             String?          @db.VarChar(10)
+  POUnitPrice                             Float?
+  QuantityOrdered                         Float?
+  KitPartFlag                             Boolean?
+  RequiredDate                            DateTime?        @db.DateTime(0)
+  QuantityReceived                        Float?
+  LastReceiptDate                         DateTime?        @db.DateTime(0)
+  QuantityRTV                             Float?
+  QuantityReleased                        Float?
+  ReleaseDate                             DateTime?        @db.DateTime(0)
+  LineNotes                               String?          @db.Text
+  JobNumber                               String?          @db.VarChar(15)
+  TaxFlag2                                Boolean?
+  TaxFlag3                                Boolean?
+  BaseTaxCode                             String?          @db.VarChar(10)
+  TaxCode2                                String?          @db.VarChar(10)
+  TaxCode3                                String?          @db.VarChar(10)
+  DepartmentCode                          String?          @db.VarChar(10)
+  UserDefined1                            String?          @db.VarChar(10)
+  UserDefined2                            String?          @db.VarChar(10)
+  ClosedFlag                              Boolean?
+  PODetail_PKey                           Int              @unique(map: "uniq_PODetail_PODetail_PKey") @default(autoincrement())
+  StartDate                               DateTime?        @db.DateTime(0)
+  partxreference                          partxreference[]
+  departmentcodes                         departmentcodes? @relation(fields: [DepartmentCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_DepartmentCodes_033")
+  jobmaster                               jobmaster?       @relation(fields: [JobNumber], references: [JobNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_JobMaster_082")
+  mrpplanning                             mrpplanning      @relation(fields: [PONumber, POLine], references: [Reference, ReferenceLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_MRPPlanning_085")
+  pipissues                               pipissues        @relation(fields: [PONumber, POLine], references: [PONumber, POLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_PIPIssues_110")
+  poheader                                poheader         @relation(fields: [PONumber], references: [PONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_POHeader_114")
+  poshortages                             poshortages      @relation(fields: [PONumber, POLine], references: [PONumber, LineNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_POShortages_120")
+  partmaster                              partmaster?      @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_PartMaster_101")
+  taxcodes_podetail_BaseTaxCodeTotaxcodes taxcodes?        @relation("podetail_BaseTaxCodeTotaxcodes", fields: [BaseTaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_TaxCodes_164")
+  taxcodes_podetail_TaxCode2Totaxcodes    taxcodes?        @relation("podetail_TaxCode2Totaxcodes", fields: [TaxCode2], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_TaxCodes_165")
+  taxcodes_podetail_TaxCode3Totaxcodes    taxcodes?        @relation("podetail_TaxCode3Totaxcodes", fields: [TaxCode3], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_TaxCodes_166")
+  uomcodes                                uomcodes?        @relation(fields: [PurchaseUOM], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_UOMCodes_182")
+
+  @@id([PONumber, POLine])
+  @@index([DepartmentCode], map: "fk_PODetail_DepartmentCodes_033")
+  @@index([JobNumber], map: "fk_PODetail_JobMaster_082")
+  @@index([BaseTaxCode], map: "fk_PODetail_TaxCodes_164")
+  @@index([TaxCode2], map: "fk_PODetail_TaxCodes_165")
+  @@index([TaxCode3], map: "fk_PODetail_TaxCodes_166")
+  @@index([PurchaseUOM], map: "fk_PODetail_UOMCodes_182")
+  @@index([PartNumber, PartXReference], map: "ix_par_PODetail_PartNumber_PartXReference")
+}
+
+model poheader {
+  PONumber                                String             @id @db.VarChar(10)
+  OrderDate                               DateTime?          @db.DateTime(0)
+  SupplierID                              String?            @db.VarChar(15)
+  RequestedBy                             String?            @db.VarChar(10)
+  RequisitionNumber                       String?            @db.VarChar(10)
+  DepartmentCode                          String?            @db.VarChar(10)
+  TermsCode                               String?            @db.VarChar(10)
+  ShipViaCode                             String?            @db.VarChar(10)
+  FOBCode                                 String?            @db.VarChar(10)
+  RequiredDate                            DateTime?          @db.DateTime(0)
+  EnteredBy                               String?            @db.VarChar(10)
+  BuyerCode                               String?            @db.VarChar(10)
+  Notes                                   String?            @db.Text
+  ClosedFlag                              Boolean?
+  BillToAddress                           String?            @db.VarChar(6)
+  ShipToAddress                           String?            @db.VarChar(6)
+  SupplierAddress                         String?            @db.VarChar(6)
+  CurrencyCode                            String?            @db.VarChar(10)
+  ExchangeRate                            Float?
+  RegionCode                              String?            @db.VarChar(10)
+  APHoldFlag                              Boolean?
+  POPlacedWith                            String?            @db.VarChar(30)
+  OrderType                               String?            @db.VarChar(10)
+  UserDefined                             String?            @db.VarChar(10)
+  POHeader_PKey                           Int                @unique(map: "uniq_POHeader_POHeader_PKey") @default(autoincrement())
+  SupplierContact                         String?            @db.VarChar(15)
+  mrpplanning                             mrpplanning[]
+  pipissues                               pipissues[]
+  podetail                                podetail[]
+  currencycodes                           currencycodes?     @relation(fields: [CurrencyCode], references: [CurrencyCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_CurrencyCodes_014")
+  departmentcodes                         departmentcodes?   @relation(fields: [DepartmentCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_DepartmentCodes_034")
+  employees_poheader_EnteredByToemployees employees?         @relation("poheader_EnteredByToemployees", fields: [EnteredBy], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_Employees_052")
+  employees_poheader_BuyerCodeToemployees employees?         @relation("poheader_BuyerCodeToemployees", fields: [BuyerCode], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_Employees_053")
+  fobcodes                                fobcodes?          @relation(fields: [FOBCode], references: [FOBCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_FOBCodes_059")
+  regioncodes                             regioncodes?       @relation(fields: [RegionCode], references: [RegionCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_RegionCodes_130")
+  shipviacodes                            shipviacodes?      @relation(fields: [ShipViaCode], references: [ShipViaCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_ShipViaCodes_140")
+  suppliers                               suppliers?         @relation(fields: [SupplierID], references: [SupplierID], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_Suppliers_152")
+  termscodes                              termscodes?        @relation(fields: [TermsCode], references: [TermsCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_TermsCodes_173")
+  poshortages                             poshortages[]
+  seriallotnumbers                        seriallotnumbers[]
+  supplieraddress                         supplieraddress?
+  supplieraddress                         supplieraddress?
+  supplieraddress                         supplieraddress?
+
+  @@index([CurrencyCode], map: "fk_POHeader_CurrencyCodes_014")
+  @@index([DepartmentCode], map: "fk_POHeader_DepartmentCodes_034")
+  @@index([EnteredBy], map: "fk_POHeader_Employees_052")
+  @@index([BuyerCode], map: "fk_POHeader_Employees_053")
+  @@index([FOBCode], map: "fk_POHeader_FOBCodes_059")
+  @@index([RegionCode], map: "fk_POHeader_RegionCodes_130")
+  @@index([ShipViaCode], map: "fk_POHeader_ShipViaCodes_140")
+  @@index([TermsCode], map: "fk_POHeader_TermsCodes_173")
+  @@index([PONumber], map: "ix_par_POHeader_PONumber")
+  @@index([SupplierID, BillToAddress], map: "ix_par_POHeader_SupplierID_BillToAddress")
+  @@index([SupplierID, ShipToAddress], map: "ix_par_POHeader_SupplierID_ShipToAddress")
+  @@index([SupplierID, SupplierAddress], map: "ix_par_POHeader_SupplierID_SupplierAddress")
+}
+
+model poshortages {
+  PONumber         String     @db.VarChar(10)
+  LineNumber       String     @db.VarChar(3)
+  PartNumber       String     @db.VarChar(30)
+  UOMCode          String     @db.VarChar(10)
+  TransactionDate  DateTime?  @db.DateTime(0)
+  Quantity         Float?
+  POShortages_PKey Int        @unique(map: "uniq_POShortages_POShortages_PKey") @default(autoincrement())
+  podetail         podetail?
+  poheader         poheader   @relation(fields: [PONumber], references: [PONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_POShortages_POHeader_115")
+  partmaster       partmaster @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_POShortages_PartMaster_103")
+
+  @@id([PONumber, LineNumber, PartNumber, UOMCode])
+  @@index([PartNumber], map: "fk_POShortages_PartMaster_103")
+  @@index([PONumber, LineNumber], map: "ix_par_POShortages_PONumber_LineNumber")
+}
+
+model preferences {
+  DBStructureVersion                                           Float?
+  DataDefinitionsVersion                                       Float?
+  AutoGenerateSO                                               Boolean?
+  AutoGeneratePO                                               Boolean?
+  AutoGenerateWO                                               Boolean?
+  AutoGenerateIV                                               Boolean?
+  SOFormat                                                     String?          @db.VarChar(10)
+  POFormat                                                     String?          @db.VarChar(10)
+  WOFormat                                                     String?          @db.VarChar(10)
+  IVFormat                                                     String?          @db.VarChar(10)
+  QuantityDecimals                                             Float?
+  CostType                                                     Float?
+  CostDecimals                                                 Float?
+  BaseCurrency                                                 String?          @db.VarChar(10)
+  Monday                                                       Boolean?
+  Tuesday                                                      Boolean?
+  Wednesday                                                    Boolean?
+  Thursday                                                     Boolean?
+  Friday                                                       Boolean?
+  Saturday                                                     Boolean?
+  Sunday                                                       Boolean?
+  DailyStartTime                                               String?          @db.VarChar(6)
+  DailyStopTime                                                String?          @db.VarChar(6)
+  UseLaborDistribution                                         Boolean?
+  POBillToAddress                                              String?          @db.VarChar(6)
+  POShipToAddress                                              String?          @db.VarChar(6)
+  DefaultPoTaxCode                                             String?          @db.VarChar(4)
+  DefaultAPDept                                                String?          @db.VarChar(5)
+  DefaultCOGSDept                                              String?          @db.VarChar(5)
+  DateFormat                                                   String?          @db.VarChar(10)
+  DateEpoch                                                    Float?
+  UOMBLength                                                   String?          @db.VarChar(10)
+  UOMBUnit                                                     String?          @db.VarChar(10)
+  UOMBVolume                                                   String?          @db.VarChar(10)
+  UOMBWeight                                                   String?          @db.VarChar(10)
+  UOMBArea                                                     String?          @db.VarChar(10)
+  RequireIntrastat                                             Boolean?
+  RequireInvoicing                                             Boolean?
+  InvoiceRemitToAddress                                        String?          @db.VarChar(50)
+  UseMultiTierTax                                              Boolean?
+  InventoryVariantsDept                                        String?          @db.VarChar(50)
+  UpdateStandardHours                                          Boolean?
+  UpdateLaborCost                                              Boolean?
+  UpdateSetupCost                                              Boolean?
+  IncludeZeroOnHandA                                           Boolean?
+  NumberAParts                                                 Int?             @default(0)
+  IncludeZeroOnHandB                                           Boolean?
+  NumberBParts                                                 Int?             @default(0)
+  IncludeZeroOnHandC                                           Boolean?
+  NumberCParts                                                 Int?             @default(0)
+  Preferences_PKey                                             Int              @id @default(autoincrement())
+  AppVersion                                                   String?          @db.VarChar(20)
+  companyaddress_preferences_POBillToAddressTocompanyaddress   companyaddress?  @relation("preferences_POBillToAddressTocompanyaddress", fields: [POBillToAddress], references: [AddressID], onDelete: NoAction, onUpdate: NoAction, map: "fk_Preferences_CompanyAddress_004")
+  companyaddress_preferences_POShipToAddressTocompanyaddress   companyaddress?  @relation("preferences_POShipToAddressTocompanyaddress", fields: [POShipToAddress], references: [AddressID], onDelete: NoAction, onUpdate: NoAction, map: "fk_Preferences_CompanyAddress_005")
+  currencycodes                                                currencycodes?   @relation(fields: [BaseCurrency], references: [CurrencyCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Preferences_CurrencyCodes_015")
+  departmentcodes_preferences_DefaultAPDeptTodepartmentcodes   departmentcodes? @relation("preferences_DefaultAPDeptTodepartmentcodes", fields: [DefaultAPDept], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Preferences_DepartmentCodes_035")
+  departmentcodes_preferences_DefaultCOGSDeptTodepartmentcodes departmentcodes? @relation("preferences_DefaultCOGSDeptTodepartmentcodes", fields: [DefaultCOGSDept], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Preferences_DepartmentCodes_036")
+  taxcodes                                                     taxcodes?        @relation(fields: [DefaultPoTaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Preferences_TaxCodes_167")
+
+  @@index([POBillToAddress], map: "fk_Preferences_CompanyAddress_004")
+  @@index([POShipToAddress], map: "fk_Preferences_CompanyAddress_005")
+  @@index([BaseCurrency], map: "fk_Preferences_CurrencyCodes_015")
+  @@index([DefaultAPDept], map: "fk_Preferences_DepartmentCodes_035")
+  @@index([DefaultCOGSDept], map: "fk_Preferences_DepartmentCodes_036")
+  @@index([DefaultPoTaxCode], map: "fk_Preferences_TaxCodes_167")
+}
+
+model pricebreakstructures {
+  CustomerDiscLevel         String            @db.VarChar(15)
+  ProductPriceCode          String            @db.VarChar(10)
+  PriceBreakQuantity        Float
+  PriceBreakDiscount        Float?
+  DescText                  String?           @db.VarChar(40)
+  PriceBreakStructures_PKey Int               @unique(map: "uniq_PriceBreakStructures_PriceBreakStructures_PKey") @default(autoincrement())
+  customerdisclevel         customerdisclevel @relation(fields: [CustomerDiscLevel], references: [CustomerDiscLevel], onDelete: NoAction, onUpdate: NoAction, map: "fk_PriceBreakStructures_CustomerDiscLevel_022")
+  productdisccodes          productdisccodes  @relation(fields: [ProductPriceCode], references: [ProductPriceCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PriceBreakStructures_ProductDiscCodes_126")
+
+  @@id([CustomerDiscLevel, ProductPriceCode, PriceBreakQuantity])
+  @@index([ProductPriceCode], map: "fk_PriceBreakStructures_ProductDiscCodes_126")
+}
+
+model pricediscountcodes {
+  PriceCode               String      @id @db.VarChar(10)
+  DiscountPercentage      Float?
+  DescText                String?     @db.VarChar(40)
+  PriceDiscountCodes_PKey Int         @unique(map: "uniq_PriceDiscountCodes_PriceDiscountCodes_PKey") @default(autoincrement())
+  customers               customers[]
+  soheader                soheader[]
+
+  @@index([PriceCode], map: "ix_par_PriceDiscountCodes_PriceCode")
+}
+
+model productclasscodes {
+  ProductClass           String       @id @db.VarChar(10)
+  RevenueAccount         String?      @db.VarChar(30)
+  ExpenseAccount         String?      @db.VarChar(30)
+  DescText               String?      @db.VarChar(40)
+  ProductClassCodes_PKey Int          @unique(map: "uniq_ProductClassCodes_ProductClassCodes_PKey") @default(autoincrement())
+  partmaster             partmaster[]
+  sodetail               sodetail[]
+
+  @@index([ProductClass], map: "ix_par_ProductClassCodes_ProductClass")
+}
+
+model productdisccodes {
+  ProductPriceCode      String                 @id @db.VarChar(10)
+  DescText              String?                @db.VarChar(40)
+  ProductDiscCodes_PKey Int                    @unique(map: "uniq_ProductDiscCodes_ProductDiscCodes_PKey") @default(autoincrement())
+  partmaster            partmaster[]
+  pricebreakstructures  pricebreakstructures[]
+
+  @@index([ProductPriceCode], map: "ix_par_ProductDiscCodes_ProductPriceCode")
+}
+
+model refdesignators {
+  Assembly            String  @db.VarChar(30)
+  Component           String  @db.VarChar(30)
+  RefDesignator       String  @db.VarChar(6)
+  DescText            String? @db.VarChar(20)
+  Notes               String? @db.Text
+  RefDesignators_PKey Int     @unique(map: "uniq_RefDesignators_RefDesignators_PKey") @default(autoincrement())
+  bom                 bom     @relation(fields: [Assembly, Component], references: [Assembly, Component], onDelete: NoAction, onUpdate: NoAction, map: "fk_RefDesignators_BOM_001")
+
+  @@id([Assembly, Component, RefDesignator])
+}
+
+model regioncodes {
+  RegionCode       String           @id @db.VarChar(10)
+  DescText         String?          @db.VarChar(40)
+  RegionCodes_PKey Int              @unique(map: "uniq_RegionCodes_RegionCodes_PKey") @default(autoincrement())
+  company          company[]
+  customers        customers[]
+  intrastatrates   intrastatrates[]
+  poheader         poheader[]
+  soheader         soheader[]
+  suppliers        suppliers[]
+
+  @@index([RegionCode], map: "ix_par_RegionCodes_RegionCode")
+}
+
+model routers {
+  PartNumber        String              @db.VarChar(30)
+  SequenceID        Int                 @default(0)
+  OperationCode     String?             @db.VarChar(10)
+  IsAlternate       Boolean?
+  Notes             String?             @db.Text
+  WorkCenterID      String?             @db.VarChar(10)
+  QueueTime         Float?
+  SetUpTime         Float?
+  RunTime           Float?
+  Routers_PKey      Int                 @unique(map: "uniq_Routers_Routers_PKey") @default(autoincrement())
+  crpdetail         crpdetail[]
+  labordistribution labordistribution[]
+  operationcodes    operationcodes?     @relation(fields: [OperationCode], references: [OperationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Routers_OperationCodes_089")
+  partmaster        partmaster          @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_Routers_PartMaster_104")
+  workcenters       workcenters?        @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_Routers_WorkCenters_194")
+
+  @@id([PartNumber, SequenceID])
+  @@index([OperationCode], map: "fk_Routers_OperationCodes_089")
+  @@index([WorkCenterID], map: "fk_Routers_WorkCenters_194")
+  @@index([PartNumber, SequenceID], map: "ix_par_Routers_PartNumber_SequenceID")
+}
+
+model securitysectiondetail {
+  SectionName                String   @db.VarChar(50)
+  DetailName                 String   @db.VarChar(50)
+  MaxLevel                   Int?     @default(0)
+  PropertyBag                Bytes?   @db.Blob
+  DetailID                   Int?     @default(0)
+  InUse                      Boolean?
+  SecuritySectionDetail_PKey Int      @unique(map: "uniq_SecuritySectionDetail_SecuritySectionDetail_PKey") @default(autoincrement())
+
+  @@id([SectionName, DetailName])
+}
+
+model securitysections {
+  SectionName           String   @id @db.VarChar(50)
+  MaxLevel              Int?     @default(0)
+  PropertyBag           Bytes?   @db.Blob
+  SectionID             Int?     @default(0)
+  InUse                 Boolean?
+  SecuritySections_PKey Int      @unique(map: "uniq_SecuritySections_SecuritySections_PKey") @default(autoincrement())
+}
+
+model seriallotnumbers {
+  SNTranID              Int?                @default(0)
+  PartNumber            String              @db.VarChar(30)
+  SNLOTNumber           String              @db.VarChar(20)
+  ExpirationDate        DateTime?           @db.DateTime(0)
+  TransactionDate       DateTime?           @db.DateTime(0)
+  Reference             String?             @db.VarChar(10)
+  PostType              String?             @db.VarChar(1)
+  SerialLotNumbers_PKey Int                 @unique(map: "uniq_SerialLotNumbers_SerialLotNumbers_PKey") @default(autoincrement())
+  pipissues             pipissues[]
+  inventorylots         inventorylots       @relation(fields: [PartNumber, SNLOTNumber], references: [PartNumber, SNLotNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_InventoryLots_067")
+  inventorytags         inventorytags       @relation(fields: [PartNumber, SNLOTNumber], references: [PartNumber, SNLotNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_InventoryTags_071")
+  poheader              poheader?           @relation(fields: [Reference], references: [PONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_POHeader_116")
+  partmaster            partmaster          @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_PartMaster_105")
+  woheader              woheader?           @relation(fields: [Reference], references: [WONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_WOHeader_190")
+  transactiondetail     transactiondetail[]
+  wipissues             wipissues[]
+
+  @@id([PartNumber, SNLOTNumber])
+  @@index([Reference], map: "fk_SerialLotNumbers_WOHeader_190")
+  @@index([PartNumber, SNLOTNumber], map: "ix_par_SerialLotNumbers_PartNumber_SNLOTNumber")
+}
+
+model shiftdowntime {
+  WorkCenterID       String            @db.VarChar(10)
+  ShiftID            String            @db.VarChar(10)
+  StartDate          DateTime          @db.DateTime(0)
+  ReasonDown         String?           @db.VarChar(30)
+  ShiftDowntime_PKey Int               @unique(map: "uniq_ShiftDowntime_ShiftDowntime_PKey") @default(autoincrement())
+  workcentershifts   workcentershifts?
+
+  @@id([WorkCenterID, ShiftID, StartDate])
+  @@index([ShiftID, WorkCenterID], map: "ix_par_ShiftDowntime_ShiftID_WorkCenterID")
+}
+
+model shipviacodes {
+  ShipViaCode       String      @id @db.VarChar(10)
+  DescText          String?     @db.VarChar(40)
+  ShipViaCodes_PKey Int         @unique(map: "uniq_ShipViaCodes_ShipViaCodes_PKey") @default(autoincrement())
+  customers         customers[]
+  poheader          poheader[]
+  soheader          soheader[]
+  suppliers         suppliers[]
+
+  @@index([ShipViaCode], map: "ix_par_ShipViaCodes_ShipViaCode")
+}
+
+model sodetail {
+  SONumber                             String             @db.VarChar(10)
+  SOLine                               String             @db.VarChar(3)
+  CustomerLine                         String?            @db.VarChar(5)
+  TaxableFlag                          Boolean?
+  PartNumber                           String?            @db.VarChar(30)
+  PartXReference                       String?            @db.VarChar(40)
+  QuantityOrdered                      Float?
+  ActualShipDate                       DateTime?          @db.DateTime(0)
+  QuantityShipped                      Float?
+  QuantityReturned                     Float?
+  ScheduledShipDate                    DateTime?          @db.DateTime(0)
+  CustomerPrice                        Float?
+  SalesUOM                             String?            @db.VarChar(10)
+  Notes                                String?            @db.Text
+  TaxCode                              String?            @db.VarChar(10)
+  TaxFlag2                             Boolean?
+  TaxFlag3                             Boolean?
+  TaxCode2                             String?            @db.VarChar(10)
+  TaxCode3                             String?            @db.VarChar(10)
+  ClosedFlag                           Boolean?
+  ProductClass                         String?            @db.VarChar(10)
+  UserDefined1                         String?            @db.VarChar(10)
+  UserDefined                          String?            @db.VarChar(10)
+  SODetail_PKey                        Int                @unique(map: "uniq_SODetail_SODetail_PKey") @default(autoincrement())
+  partxreference                       partxreference[]
+  creditmemodetail                     creditmemodetail   @relation(fields: [SONumber, SOLine], references: [SONumber, SOLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_CreditMemoDetail_006")
+  invoicedetail                        invoicedetail      @relation(fields: [SONumber, SOLine], references: [SONumber, SOLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_InvoiceDetail_073")
+  mrpplanning                          mrpplanning        @relation(fields: [SONumber, SOLine], references: [Reference, ReferenceLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_MRPPlanning_086")
+  partmaster                           partmaster?        @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_PartMaster_106")
+  productclasscodes                    productclasscodes? @relation(fields: [ProductClass], references: [ProductClass], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_ProductClassCodes_124")
+  soheader                             soheader           @relation(fields: [SONumber], references: [SONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_SOHeader_146")
+  taxcodes_sodetail_TaxCodeTotaxcodes  taxcodes?          @relation("sodetail_TaxCodeTotaxcodes", fields: [TaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_TaxCodes_168")
+  taxcodes_sodetail_TaxCode2Totaxcodes taxcodes?          @relation("sodetail_TaxCode2Totaxcodes", fields: [TaxCode2], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_TaxCodes_169")
+  taxcodes_sodetail_TaxCode3Totaxcodes taxcodes?          @relation("sodetail_TaxCode3Totaxcodes", fields: [TaxCode3], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_TaxCodes_170")
+  uomcodes                             uomcodes?          @relation(fields: [SalesUOM], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_UOMCodes_184")
+
+  @@id([SONumber, SOLine])
+  @@index([ProductClass], map: "fk_SODetail_ProductClassCodes_124")
+  @@index([TaxCode], map: "fk_SODetail_TaxCodes_168")
+  @@index([TaxCode2], map: "fk_SODetail_TaxCodes_169")
+  @@index([TaxCode3], map: "fk_SODetail_TaxCodes_170")
+  @@index([SalesUOM], map: "fk_SODetail_UOMCodes_184")
+  @@index([PartNumber, PartXReference], map: "ix_par_SODetail_PartNumber_PartXReference")
+}
+
+model soheader {
+  SONumber                                                           String              @id @db.VarChar(10)
+  OrderDate                                                          DateTime?           @db.DateTime(0)
+  CustomerID                                                         String?             @db.VarChar(15)
+  SalesPerson                                                        String?             @db.VarChar(10)
+  TermsCode                                                          String?             @db.VarChar(10)
+  ShipViaCode                                                        String?             @db.VarChar(10)
+  FOBCode                                                            String?             @db.VarChar(10)
+  RequiredDate                                                       DateTime?           @db.DateTime(0)
+  EnteredBy                                                          String?             @db.VarChar(10)
+  Notes                                                              String?             @db.Text
+  BillToAddress                                                      String?             @db.VarChar(6)
+  ShipToAddress                                                      String?             @db.VarChar(6)
+  OrderedBy                                                          String?             @db.VarChar(30)
+  CustomerPO                                                         String?             @db.VarChar(18)
+  PriceCode                                                          String?             @db.VarChar(10)
+  ShipHoldFlag                                                       Boolean?
+  ClosedFlag                                                         Boolean?
+  DepartmentCode                                                     String?             @db.VarChar(10)
+  CurrencyCode                                                       String?             @db.VarChar(10)
+  CurrencyRate                                                       Float?
+  JobNumber                                                          String?             @db.VarChar(15)
+  RegionCode                                                         String?             @db.VarChar(10)
+  Attention                                                          String?             @db.VarChar(30)
+  QuoteNumber                                                        String?             @db.VarChar(10)
+  OrderType                                                          String?             @db.VarChar(10)
+  UserDefined                                                        String?             @db.VarChar(10)
+  SOHeader_PKey                                                      Int                 @unique(map: "uniq_SOHeader_SOHeader_PKey") @default(autoincrement())
+  BillToContact                                                      String?             @db.VarChar(15)
+  ShipToContact                                                      String?             @db.VarChar(15)
+  creditmemoheader                                                   creditmemoheader[]
+  mrpplanning                                                        mrpplanning[]
+  sodetail                                                           sodetail[]
+  currencycodes                                                      currencycodes?      @relation(fields: [CurrencyCode], references: [CurrencyCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_CurrencyCodes_016")
+  customeraddress_soheader_CustomerID_BillToAddressTocustomeraddress customeraddress?    @relation("soheader_CustomerID_BillToAddressTocustomeraddress", fields: [CustomerID, BillToAddress], references: [CustomerID, AddressID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_CustomerAddress_019")
+  customeraddress_soheader_CustomerID_ShipToAddressTocustomeraddress customeraddress?    @relation("soheader_CustomerID_ShipToAddressTocustomeraddress", fields: [CustomerID, ShipToAddress], references: [CustomerID, AddressID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_CustomerAddress_020")
+  customers                                                          customers?          @relation(fields: [CustomerID], references: [CustomerID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_Customers_026")
+  departmentcodes                                                    departmentcodes?    @relation(fields: [DepartmentCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_DepartmentCodes_037")
+  employees_soheader_SalesPersonToemployees                          employees?          @relation("soheader_SalesPersonToemployees", fields: [SalesPerson], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_Employees_054")
+  employees_soheader_EnteredByToemployees                            employees?          @relation("soheader_EnteredByToemployees", fields: [EnteredBy], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_Employees_055")
+  fobcodes                                                           fobcodes?           @relation(fields: [FOBCode], references: [FOBCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_FOBCodes_060")
+  jobmaster                                                          jobmaster?          @relation(fields: [JobNumber], references: [JobNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_JobMaster_083")
+  pricediscountcodes                                                 pricediscountcodes? @relation(fields: [PriceCode], references: [PriceCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_PriceDiscountCodes_122")
+  regioncodes                                                        regioncodes?        @relation(fields: [RegionCode], references: [RegionCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_RegionCodes_131")
+  shipviacodes                                                       shipviacodes?       @relation(fields: [ShipViaCode], references: [ShipViaCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_ShipViaCodes_141")
+  termscodes                                                         termscodes?         @relation(fields: [TermsCode], references: [TermsCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SOHeader_TermsCodes_174")
+
+  @@index([CurrencyCode], map: "fk_SOHeader_CurrencyCodes_016")
+  @@index([CustomerID, BillToAddress], map: "fk_SOHeader_CustomerAddress_019")
+  @@index([CustomerID, ShipToAddress], map: "fk_SOHeader_CustomerAddress_020")
+  @@index([DepartmentCode], map: "fk_SOHeader_DepartmentCodes_037")
+  @@index([SalesPerson], map: "fk_SOHeader_Employees_054")
+  @@index([EnteredBy], map: "fk_SOHeader_Employees_055")
+  @@index([FOBCode], map: "fk_SOHeader_FOBCodes_060")
+  @@index([JobNumber], map: "fk_SOHeader_JobMaster_083")
+  @@index([PriceCode], map: "fk_SOHeader_PriceDiscountCodes_122")
+  @@index([RegionCode], map: "fk_SOHeader_RegionCodes_131")
+  @@index([ShipViaCode], map: "fk_SOHeader_ShipViaCodes_141")
+  @@index([TermsCode], map: "fk_SOHeader_TermsCodes_174")
+  @@index([SONumber], map: "ix_par_SOHeader_SONumber")
+}
+
+model stocklocations {
+  DepartmentCode                                                                  String              @db.VarChar(10)
+  LocationCode                                                                    String              @db.VarChar(10)
+  DescText                                                                        String?             @db.VarChar(40)
+  StockLocations_PKey                                                             Int                 @unique(map: "uniq_StockLocations_StockLocations_PKey") @default(autoincrement())
+  departmentcodes                                                                 departmentcodes     @relation(fields: [DepartmentCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_StockLocations_DepartmentCodes_038")
+  inventorylots                                                                   inventorylots       @relation(fields: [DepartmentCode, LocationCode], references: [DepartmentCode, LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_StockLocations_InventoryLots_068")
+  inventorytags                                                                   inventorytags       @relation(fields: [DepartmentCode, LocationCode], references: [DepartmentCode, LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_StockLocations_InventoryTags_072")
+  partmaster                                                                      partmaster          @relation(fields: [LocationCode], references: [LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_StockLocations_PartMaster_107")
+  transactiondetail_transactiondetail_FromDepartment_FromLocationTostocklocations transactiondetail[] @relation("transactiondetail_FromDepartment_FromLocationTostocklocations")
+  transactiondetail_transactiondetail_ToDepartment_ToLocationTostocklocations     transactiondetail[] @relation("transactiondetail_ToDepartment_ToLocationTostocklocations")
+
+  @@id([DepartmentCode, LocationCode])
+  @@index([LocationCode], map: "fk_StockLocations_PartMaster_107")
+  @@index([DepartmentCode, LocationCode], map: "ix_par_StockLocations_DepartmentCode_LocationCode")
+}
+
+model suocodes {
+  SUOCode       String       @id @db.VarChar(10)
+  DescText      String?      @db.VarChar(40)
+  SUOCodes_PKey Int          @unique(map: "uniq_SUOCodes_SUOCodes_PKey") @default(autoincrement())
+  partmaster    partmaster[]
+
+  @@index([SUOCode], map: "ix_par_SUOCodes_SUOCode")
+}
+
+model supplieraddress {
+  SupplierID           String           @db.VarChar(15)
+  AddressID            String           @db.VarChar(6)
+  AddressLine1         String?          @db.VarChar(40)
+  AddressLine2         String?          @db.VarChar(40)
+  AddressLine3         String?          @db.VarChar(40)
+  AddressLine4         String?          @db.VarChar(40)
+  City                 String?          @db.VarChar(28)
+  State                String?          @db.VarChar(3)
+  ZIPCode              String?          @db.VarChar(9)
+  Postal               String?          @db.VarChar(10)
+  Country              String?          @db.VarChar(20)
+  TaxCode              String?          @db.VarChar(10)
+  SupplierAddress_PKey Int              @unique(map: "uniq_SupplierAddress_SupplierAddress_PKey") @default(autoincrement())
+  poheader             poheader         @relation(fields: [SupplierID, AddressID], references: [SupplierID, BillToAddress], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_POHeader_117")
+  poheader             poheader         @relation(fields: [SupplierID, AddressID], references: [SupplierID, ShipToAddress], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_POHeader_118")
+  poheader             poheader         @relation(fields: [SupplierID, AddressID], references: [SupplierID, SupplierAddress], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_POHeader_119")
+  suppliercontacts     suppliercontacts @relation(fields: [AddressID, SupplierID], references: [AddressID, SupplierID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_SupplierContacts_150")
+  suppliers            suppliers        @relation(fields: [SupplierID], references: [SupplierID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_Suppliers_153")
+  taxcodes             taxcodes?        @relation(fields: [TaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_TaxCodes_171")
+
+  @@id([SupplierID, AddressID])
+  @@index([AddressID, SupplierID], map: "fk_SupplierAddress_SupplierContacts_150")
+  @@index([TaxCode], map: "fk_SupplierAddress_TaxCodes_171")
+}
+
+model suppliercontacts {
+  SupplierID            String           @db.VarChar(15)
+  ContactID             String           @db.VarChar(15)
+  AddressID             String           @db.VarChar(6)
+  Name                  String?          @db.VarChar(40)
+  Phone                 String?          @db.VarChar(30)
+  PhoneFMT              String?          @db.VarChar(30)
+  FAX                   String?          @db.VarChar(30)
+  FAXFMT                String?          @db.VarChar(30)
+  Email                 String?          @db.VarChar(50)
+  Notes                 String?          @db.Text
+  SupplierContacts_PKey Int              @unique(map: "uniq_SupplierContacts_SupplierContacts_PKey") @default(autoincrement())
+  supplieraddress       supplieraddress?
+
+  @@id([SupplierID, ContactID, AddressID])
+  @@index([AddressID, SupplierID], map: "ix_par_SupplierContacts_AddressID_SupplierID")
+}
+
+model suppliers {
+  SupplierID      String            @id @db.VarChar(15)
+  SupplierName    String?           @db.VarChar(40)
+  CompanyAccount  String?           @db.VarChar(20)
+  CurrencyCode    String?           @db.VarChar(10)
+  FOBCode         String?           @db.VarChar(10)
+  ShipViaCode     String?           @db.VarChar(10)
+  TermsCode       String?           @db.VarChar(10)
+  RegionCode      String?           @db.VarChar(10)
+  VATRegNumber    String?           @db.VarChar(15)
+  DateAdded       DateTime?         @db.DateTime(0)
+  ActiveFlag      Boolean?
+  Notes           String?           @db.Text
+  APHoldFlag      Boolean?
+  VATBranchID     String?           @db.VarChar(3)
+  UserDefined     String?           @db.VarChar(10)
+  Suppliers_PKey  Int               @unique(map: "uniq_Suppliers_Suppliers_PKey") @default(autoincrement())
+  partxreference  partxreference[]
+  poheader        poheader[]
+  supplieraddress supplieraddress[]
+  currencycodes   currencycodes?    @relation(fields: [CurrencyCode], references: [CurrencyCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Suppliers_CurrencyCodes_017")
+  fobcodes        fobcodes?         @relation(fields: [FOBCode], references: [FOBCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Suppliers_FOBCodes_061")
+  regioncodes     regioncodes?      @relation(fields: [RegionCode], references: [RegionCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Suppliers_RegionCodes_132")
+  shipviacodes    shipviacodes?     @relation(fields: [ShipViaCode], references: [ShipViaCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Suppliers_ShipViaCodes_142")
+  termscodes      termscodes?       @relation(fields: [TermsCode], references: [TermsCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_Suppliers_TermsCodes_175")
+
+  @@index([CurrencyCode], map: "fk_Suppliers_CurrencyCodes_017")
+  @@index([FOBCode], map: "fk_Suppliers_FOBCodes_061")
+  @@index([RegionCode], map: "fk_Suppliers_RegionCodes_132")
+  @@index([ShipViaCode], map: "fk_Suppliers_ShipViaCodes_142")
+  @@index([TermsCode], map: "fk_Suppliers_TermsCodes_175")
+  @@index([SupplierID], map: "ix_par_Suppliers_SupplierID")
+}
+
+model syskeys {
+  SYSKEYNAME   String  @id @db.VarChar(10)
+  SYSKEYMIN    Float?
+  LASTFORMAT   String? @db.VarChar(10)
+  SysKeys_PKey Int     @unique(map: "uniq_SysKeys_SysKeys_PKey") @default(autoincrement())
+}
+
+model taxcodes {
+  TaxCode                                                 String             @id @db.VarChar(10)
+  TaxRate                                                 Float?
+  DescText                                                String?            @db.VarChar(40)
+  LiabilityAccount                                        String?            @db.VarChar(30)
+  TaxCodes_PKey                                           Int                @unique(map: "uniq_TaxCodes_TaxCodes_PKey") @default(autoincrement())
+  companyaddress                                          companyaddress[]
+  creditmemodetail_creditmemodetail_TaxCode2Totaxcodes    creditmemodetail[] @relation("creditmemodetail_TaxCode2Totaxcodes")
+  creditmemodetail_creditmemodetail_TaxCode3Totaxcodes    creditmemodetail[] @relation("creditmemodetail_TaxCode3Totaxcodes")
+  creditmemodetail_creditmemodetail_BaseTaxCodeTotaxcodes creditmemodetail[] @relation("creditmemodetail_BaseTaxCodeTotaxcodes")
+  customeraddress                                         customeraddress[]
+  intrastatrates                                          intrastatrates[]
+  invoicedetail_invoicedetail_BaseTaxCodeTotaxcodes       invoicedetail[]    @relation("invoicedetail_BaseTaxCodeTotaxcodes")
+  invoicedetail_invoicedetail_TaxCode3Totaxcodes          invoicedetail[]    @relation("invoicedetail_TaxCode3Totaxcodes")
+  invoicedetail_invoicedetail_TaxCode2Totaxcodes          invoicedetail[]    @relation("invoicedetail_TaxCode2Totaxcodes")
+  partmaster                                              partmaster[]
+  podetail_podetail_BaseTaxCodeTotaxcodes                 podetail[]         @relation("podetail_BaseTaxCodeTotaxcodes")
+  podetail_podetail_TaxCode2Totaxcodes                    podetail[]         @relation("podetail_TaxCode2Totaxcodes")
+  podetail_podetail_TaxCode3Totaxcodes                    podetail[]         @relation("podetail_TaxCode3Totaxcodes")
+  preferences                                             preferences[]
+  sodetail_sodetail_TaxCodeTotaxcodes                     sodetail[]         @relation("sodetail_TaxCodeTotaxcodes")
+  sodetail_sodetail_TaxCode2Totaxcodes                    sodetail[]         @relation("sodetail_TaxCode2Totaxcodes")
+  sodetail_sodetail_TaxCode3Totaxcodes                    sodetail[]         @relation("sodetail_TaxCode3Totaxcodes")
+  supplieraddress                                         supplieraddress[]
+
+  @@index([TaxCode], map: "ix_par_TaxCodes_TaxCode")
+}
+
+model termscodes {
+  TermsCode       String      @id @db.VarChar(10)
+  DescText        String?     @db.VarChar(40)
+  TermsCodes_PKey Int         @unique(map: "uniq_TermsCodes_TermsCodes_PKey") @default(autoincrement())
+  customers       customers[]
+  poheader        poheader[]
+  soheader        soheader[]
+  suppliers       suppliers[]
+
+  @@index([TermsCode], map: "ix_par_TermsCodes_TermsCode")
+}
+
+model transactiondetail {
+  TransactionGroup                                                             Float
+  TransactionID                                                                Float
+  PartNumber                                                                   String?           @db.VarChar(30)
+  Quantity                                                                     Float?
+  FromDepartment                                                               String?           @db.VarChar(10)
+  ToDepartment                                                                 String?           @db.VarChar(10)
+  FromLocation                                                                 String?           @db.VarChar(10)
+  ToLocation                                                                   String?           @db.VarChar(10)
+  SNLotNumber                                                                  String?           @db.VarChar(20)
+  Cost                                                                         Float?
+  LineNumber                                                                   String?           @db.VarChar(10)
+  UOMConversion                                                                Float?
+  SOCost                                                                       Float?            @default(0)
+  POCost                                                                       Float?
+  WOCost                                                                       Float?            @default(0)
+  InvoiceLine                                                                  String?           @db.VarChar(10)
+  TransactionDetail_PKey                                                       Int               @unique(map: "uniq_TransactionDetail_TransactionDetail_PKey") @default(autoincrement())
+  TransactionInformation                                                       String?           @db.VarChar(60)
+  FromJobNumber                                                                String?           @db.VarChar(15)
+  ToJobNumber                                                                  String?           @db.VarChar(15)
+  departmentcodes_transactiondetail_ToDepartmentTodepartmentcodes              departmentcodes?  @relation("transactiondetail_ToDepartmentTodepartmentcodes", fields: [ToDepartment], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_DepartmentCodes_039")
+  departmentcodes_transactiondetail_FromDepartmentTodepartmentcodes            departmentcodes?  @relation("transactiondetail_FromDepartmentTodepartmentcodes", fields: [FromDepartment], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_DepartmentCodes_040")
+  invoicedetail                                                                invoicedetail?    @relation(fields: [InvoiceLine], references: [InvoiceLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_InvoiceDetail_074")
+  seriallotnumbers                                                             seriallotnumbers? @relation(fields: [PartNumber, SNLotNumber], references: [PartNumber, SNLOTNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_SerialLotNumbers_136")
+  stocklocations_transactiondetail_FromDepartment_FromLocationTostocklocations stocklocations?   @relation("transactiondetail_FromDepartment_FromLocationTostocklocations", fields: [FromDepartment, FromLocation], references: [DepartmentCode, LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_StockLocations_147")
+  stocklocations_transactiondetail_ToDepartment_ToLocationTostocklocations     stocklocations?   @relation("transactiondetail_ToDepartment_ToLocationTostocklocations", fields: [ToDepartment, ToLocation], references: [DepartmentCode, LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_StockLocations_148")
+  transactionheader                                                            transactionheader @relation(fields: [TransactionGroup], references: [TransactionGroup], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_TransactionHeader_176")
+
+  @@id([TransactionGroup, TransactionID])
+  @@index([InvoiceLine], map: "fk_TransactionDetail_InvoiceDetail_074")
+  @@index([PartNumber, SNLotNumber], map: "fk_TransactionDetail_SerialLotNumbers_136")
+  @@index([FromDepartment, FromLocation], map: "fk_TransactionDetail_StockLocations_147")
+  @@index([ToDepartment, ToLocation], map: "fk_TransactionDetail_StockLocations_148")
+}
+
+model transactionheader {
+  TransactionGroup       Float               @id
+  TransactionType        String?             @db.VarChar(3)
+  TransactionDate        DateTime?           @db.DateTime(0)
+  Reference              String?             @db.VarChar(10)
+  Notes                  String?             @db.Text
+  AuditDate              DateTime?           @db.DateTime(0)
+  EnteredBy              String?             @db.VarChar(10)
+  InvoiceNumber          String?             @db.VarChar(10)
+  TransactionHeader_PKey Int                 @unique(map: "uniq_TransactionHeader_TransactionHeader_PKey") @default(autoincrement())
+  transactiondetail      transactiondetail[]
+  employees              employees?          @relation(fields: [EnteredBy], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionHeader_Employees_056")
+  invoiceheader          invoiceheader?      @relation(fields: [InvoiceNumber], references: [InvoiceNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionHeader_InvoiceHeader_077")
+
+  @@index([EnteredBy], map: "fk_TransactionHeader_Employees_056")
+  @@index([InvoiceNumber], map: "fk_TransactionHeader_InvoiceHeader_077")
+  @@index([TransactionGroup], map: "ix_par_TransactionHeader_TransactionGroup")
+}
+
+model uomcodes {
+  UOMCode                                     String             @id @db.VarChar(10)
+  DescText                                    String?            @db.VarChar(40)
+  UOMType                                     Float?
+  ConversionFactor                            Float?
+  UOMCodes_PKey                               Int                @unique(map: "uniq_UOMCodes_UOMCodes_PKey") @default(autoincrement())
+  bom                                         bom[]
+  creditmemodetail                            creditmemodetail[]
+  invoicedetail                               invoicedetail[]
+  partmaster_partmaster_StockUOMTouomcodes    partmaster[]       @relation("partmaster_StockUOMTouomcodes")
+  partmaster_partmaster_UOMPurchaseTouomcodes partmaster[]       @relation("partmaster_UOMPurchaseTouomcodes")
+  pipissues                                   pipissues[]
+  podetail                                    podetail[]
+  sodetail                                    sodetail[]
+  wipissues                                   wipissues[]
+  woheader                                    woheader[]
+
+  @@index([UOMCode], map: "ix_par_UOMCodes_UOMCode")
+}
+
+model wipissues {
+  WONumber         String            @db.VarChar(10)
+  IssueID          Int               @default(0)
+  PartNumber       String?           @db.VarChar(30)
+  DepartmentCode   String?           @db.VarChar(10)
+  Location         String?           @db.VarChar(10)
+  SNLOTNumber      String?           @db.VarChar(20)
+  JobNumber        String?           @db.VarChar(15)
+  QuantityRequired Float?            @default(0)
+  QuantityReleased Float?            @default(0)
+  QuantityScrapped Float?
+  MaterialCost     Float?
+  UOMCode          String?           @db.VarChar(10)
+  WIPIssues_PKey   Int               @unique(map: "uniq_WIPIssues_WIPIssues_PKey") @default(autoincrement())
+  partmaster       partmaster?       @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_WIPIssues_PartMaster_108")
+  seriallotnumbers seriallotnumbers? @relation(fields: [PartNumber, SNLOTNumber], references: [PartNumber, SNLOTNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_WIPIssues_SerialLotNumbers_137")
+  uomcodes         uomcodes?         @relation(fields: [UOMCode], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_WIPIssues_UOMCodes_185")
+  woheader         woheader          @relation(fields: [WONumber], references: [WONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_WIPIssues_WOHeader_191")
+
+  @@id([WONumber, IssueID])
+  @@index([PartNumber, SNLOTNumber], map: "fk_WIPIssues_SerialLotNumbers_137")
+  @@index([UOMCode], map: "fk_WIPIssues_UOMCodes_185")
+}
+
+model woheader {
+  WONumber          String              @id @db.VarChar(10)
+  StartDate         DateTime?           @db.DateTime(0)
+  RequiredDate      DateTime?           @db.DateTime(0)
+  WOPriority        String?             @db.VarChar(1)
+  QuantityCompleted Float?
+  QuantityReleased  Float?
+  QuantityRequired  Float?
+  QuantityToStart   Float?
+  PartNumber        String?             @db.VarChar(30)
+  WorkOrderUOM      String?             @db.VarChar(10)
+  ClosedFlag        Boolean?
+  EnteredBy         String?             @db.VarChar(10)
+  ReleasedDate      DateTime?           @db.DateTime(0)
+  JobNumber         String?             @db.VarChar(15)
+  Notes             String?             @db.Text
+  UserDefined       String?             @db.VarChar(10)
+  WOHeader_PKey     Int                 @unique(map: "uniq_WOHeader_WOHeader_PKey") @default(autoincrement())
+  crpdetail         crpdetail[]
+  labordistribution labordistribution[]
+  mrpplanning       mrpplanning[]
+  seriallotnumbers  seriallotnumbers[]
+  wipissues         wipissues[]
+  employees         employees?          @relation(fields: [EnteredBy], references: [EmployeeID], onDelete: NoAction, onUpdate: NoAction, map: "fk_WOHeader_Employees_057")
+  jobmaster         jobmaster?          @relation(fields: [JobNumber], references: [JobNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_WOHeader_JobMaster_084")
+  partmaster        partmaster?         @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_WOHeader_PartMaster_109")
+  uomcodes          uomcodes?           @relation(fields: [WorkOrderUOM], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_WOHeader_UOMCodes_186")
+
+  @@index([EnteredBy], map: "fk_WOHeader_Employees_057")
+  @@index([JobNumber], map: "fk_WOHeader_JobMaster_084")
+  @@index([PartNumber], map: "fk_WOHeader_PartMaster_109")
+  @@index([WorkOrderUOM], map: "fk_WOHeader_UOMCodes_186")
+  @@index([WONumber], map: "ix_par_WOHeader_WONumber")
+}
+
+model workcenters {
+  WorkCenterID     String             @id @db.VarChar(10)
+  WorkCenterName   String?            @db.VarChar(40)
+  Capacity         Float?
+  DefaultWageRate  Float?
+  Burden           Float?
+  UseShifts        Boolean?
+  WCAccountNumber  String?            @db.VarChar(30)
+  WorkCenters_PKey Int                @unique(map: "uniq_WorkCenters_WorkCenters_PKey") @default(autoincrement())
+  crpdetail        crpdetail[]
+  crpsummary       crpsummary[]
+  routers          routers[]
+  crpheader        crpheader          @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_WorkCenters_CRPHeader_011")
+  workcentershifts workcentershifts[]
+
+  @@index([WorkCenterID], map: "ix_par_WorkCenters_WorkCenterID")
+}
+
+model workcentershifts {
+  WorkCenterID          String        @db.VarChar(10)
+  ShiftID               String        @db.VarChar(10)
+  StartTime             DateTime?     @db.DateTime(0)
+  StopTime              DateTime?     @db.DateTime(0)
+  Capacity              Float?
+  Monday                Boolean?
+  Tuesday               Boolean?
+  Wednesday             Boolean?
+  Thursday              Boolean?
+  Friday                Boolean?
+  Saturday              Boolean?
+  Sunday                Boolean?
+  WorkCenterShifts_PKey Int           @unique(map: "uniq_WorkCenterShifts_WorkCenterShifts_PKey") @default(autoincrement())
+  crpdetail             crpdetail     @relation(fields: [ShiftID], references: [ShiftID], onDelete: NoAction, onUpdate: NoAction, map: "fk_WorkCenterShifts_CRPDetail_008")
+  shiftdowntime         shiftdowntime @relation(fields: [ShiftID, WorkCenterID], references: [ShiftID, WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_WorkCenterShifts_ShiftDowntime_138")
+  workcenters           workcenters   @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_WorkCenterShifts_WorkCenters_195")
+
+  @@id([WorkCenterID, ShiftID])
+  @@index([ShiftID, WorkCenterID], map: "fk_WorkCenterShifts_ShiftDowntime_138")
+}
+
+model woshortages {
+  WONumber         String    @db.VarChar(10)
+  PartNumber       String    @db.VarChar(30)
+  UOM              String    @db.VarChar(10)
+  TransactionDate  DateTime? @db.DateTime(0)
+  Quantity         Float?
+  WOShortages_PKey Int       @unique(map: "uniq_WOShortages_WOShortages_PKey") @default(autoincrement())
+  NeedDate         DateTime? @db.DateTime(0)
+  Comment          String?   @db.Text
+
+  @@id([WONumber, PartNumber, UOM])
+}
+
+model zipcodes {
+  ZIPCode       String   @id @db.VarChar(9)
+  State         String?  @db.VarChar(3)
+  City          String?  @db.VarChar(28)
+  County        String?  @db.VarChar(25)
+  AreaCode      String?  @db.VarChar(3)
+  TimeFromGMT   String?  @db.VarChar(4)
+  DST           Boolean?
+  ZIPCodes_PKey Int      @unique(map: "uniq_ZIPCodes_ZIPCodes_PKey") @default(autoincrement())
 }
