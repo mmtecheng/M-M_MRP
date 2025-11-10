@@ -255,28 +255,63 @@ function initInventorySearch() {
 
 function initBillOfMaterials() {
   const tableBody = document.querySelector('[data-bom-results]');
+  const assemblyDetailTarget = document.querySelector('[data-bom-assembly]');
 
   if (!tableBody) {
     return;
   }
 
+  const COLUMN_COUNT = 7;
   let activeController = null;
+
+  const updateAssemblyDetail = (value) => {
+    if (!assemblyDetailTarget) {
+      return;
+    }
+
+    const detail = typeof value === 'string' ? value.trim() : '';
+
+    if (detail.length > 0) {
+      assemblyDetailTarget.textContent = detail;
+      assemblyDetailTarget.hidden = false;
+    } else {
+      assemblyDetailTarget.textContent = '';
+      assemblyDetailTarget.hidden = true;
+    }
+  };
 
   const showMessage = (message) => {
     tableBody.innerHTML = '';
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 7;
+    cell.colSpan = COLUMN_COUNT;
     cell.dataset.bomMessage = '';
     cell.textContent = message;
     row.appendChild(cell);
     tableBody.appendChild(row);
+
+    updateAssemblyDetail('');
   };
 
   const formatPart = (partNumber, description) => {
     const number = partNumber && partNumber.length > 0 ? partNumber : '—';
     const desc = description && description.length > 0 ? description : '';
     return desc ? `${number} — ${desc}` : number;
+  };
+
+  const formatAssemblyDetail = (partNumber, description) => {
+    const trimmedNumber = typeof partNumber === 'string' ? partNumber.trim() : '';
+    const trimmedDescription = typeof description === 'string' ? description.trim() : '';
+
+    if (!trimmedNumber && !trimmedDescription) {
+      return '';
+    }
+
+    if (trimmedNumber && trimmedDescription) {
+      return `${trimmedNumber} — ${trimmedDescription}`;
+    }
+
+    return trimmedNumber || trimmedDescription;
   };
 
   const formatDate = (value) => {
@@ -301,6 +336,11 @@ function initBillOfMaterials() {
     maximumFractionDigits: 4,
   });
 
+  const stockFormatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+
   const renderRows = (items) => {
     tableBody.innerHTML = '';
 
@@ -309,13 +349,17 @@ function initBillOfMaterials() {
       return;
     }
 
+    updateAssemblyDetail(formatAssemblyDetail(items[0].assembly, items[0].assemblyDescription));
+
     items.forEach((item) => {
       const row = document.createElement('tr');
 
       const cells = [
-        formatPart(item.assembly, item.assemblyDescription),
         formatPart(item.component, item.componentDescription),
-        item.sequence && item.sequence.length > 0 ? item.sequence : '—',
+        typeof item.availableQuantity === 'number' && Number.isFinite(item.availableQuantity)
+          ? stockFormatter.format(item.availableQuantity)
+          : '—',
+        item.componentLocation && item.componentLocation.length > 0 ? item.componentLocation : '—',
         typeof item.quantityPer === 'number' && !Number.isNaN(item.quantityPer)
           ? numberFormatter.format(item.quantityPer)
           : '—',

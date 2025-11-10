@@ -89,15 +89,18 @@
       </section>
 
       <section class="card" data-entity="BOM">
-        <h3 class="section-title">Bill of Materials</h3>
+        <div class="section-heading">
+          <h3 class="section-title">Bill of Materials</h3>
+          <span class="section-title__detail" data-bom-assembly hidden></span>
+        </div>
         <p class="section-description">Derived from <code>BOM</code> and <code>RefDesignators</code>. Visualize component relationships and effectivity windows.</p>
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Assembly</th>
                 <th>Component</th>
-                <th>Sequence</th>
+                <th>In Stock</th>
+                <th>Location</th>
                 <th>Qty Per</th>
                 <th>Effective Date</th>
                 <th>Obsolete Date</th>
