@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { summarizeConnectionString } from '../../src/lib/connectionString.js';
 import { logger, serializeError } from '../../src/lib/logger.js';
@@ -9,6 +10,7 @@ const EXECUTABLE = 'npx';
 const PRISMA_COMMAND = 'prisma';
 const PRISMA_DB_PULL_ARGS = ['db', 'pull'];
 const PRISMA_GENERATE_ARGS = ['generate'];
+const PRISMA_SCHEMA_PATH = fileURLToPath(new URL('../../prisma/schema.prisma', import.meta.url));
 
 type PrismaStepResult = {
   step: string;
@@ -41,7 +43,9 @@ async function runPrismaCommand(args: string[], step: string): Promise<PrismaSte
   };
 
   return await new Promise<PrismaStepResult>((resolve, reject) => {
-    const child = spawn(EXECUTABLE, [PRISMA_COMMAND, ...args], {
+    const prismaArgs = [PRISMA_COMMAND, ...args, '--schema', PRISMA_SCHEMA_PATH];
+
+    const child = spawn(EXECUTABLE, prismaArgs, {
       env,
       shell: process.platform === 'win32',
     });

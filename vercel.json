@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "api/prisma/sync.ts": {
+      "includeFiles": [
+        "prisma/schema.prisma"
+      ]
+    }
+  }
+}
