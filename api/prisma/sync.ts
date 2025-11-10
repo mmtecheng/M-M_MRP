@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { copyFile, mkdir, readFile } from 'node:fs/promises';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import { summarizeConnectionString } from '../../src/lib/connectionString.js';
 import { logger, serializeError } from '../../src/lib/logger.js';
@@ -9,8 +10,9 @@ import { logger, serializeError } from '../../src/lib/logger.js';
 const EXECUTABLE = 'npx';
 const PRISMA_COMMAND = 'prisma';
 const PRISMA_DB_PULL_ARGS = ['db', 'pull'];
-const PRISMA_GENERATE_ARGS = ['generate'];
 const PRISMA_SCHEMA_PATH = fileURLToPath(new URL('../../prisma/schema.prisma', import.meta.url));
+const TEMP_SCHEMA_DIR = join('/tmp', 'prisma-sync');
+const TEMP_SCHEMA_PATH = join(TEMP_SCHEMA_DIR, 'schema.prisma');
 
 type PrismaStepResult = {
   step: string;
@@ -20,7 +22,7 @@ type PrismaStepResult = {
 
 let prismaSyncInProgress = false;
 
-async function runPrismaCommand(args: string[], step: string): Promise<PrismaStepResult> {
+async function runPrismaCommand(args: string[], step: string, schemaPath: string): Promise<PrismaStepResult> {
   logger.info('Starting Prisma command from Vercel function', { step, args });
 
   const homeDir = process.env.HOME ?? '/tmp';
@@ -43,7 +45,7 @@ async function runPrismaCommand(args: string[], step: string): Promise<PrismaSte
   };
 
   return await new Promise<PrismaStepResult>((resolve, reject) => {
-    const prismaArgs = [PRISMA_COMMAND, ...args, '--schema', PRISMA_SCHEMA_PATH];
+    const prismaArgs = [PRISMA_COMMAND, ...args, '--schema', schemaPath];
 
     const child = spawn(EXECUTABLE, prismaArgs, {
       env,
@@ -88,11 +90,16 @@ async function runPrismaCommand(args: string[], step: string): Promise<PrismaSte
   });
 }
 
-async function performPrismaSync() {
+async function prepareTemporarySchema(): Promise<string> {
+  await mkdir(TEMP_SCHEMA_DIR, { recursive: true });
+  await copyFile(PRISMA_SCHEMA_PATH, TEMP_SCHEMA_PATH);
+  return TEMP_SCHEMA_PATH;
+}
+
+async function performPrismaSync(schemaPath: string) {
   const results: PrismaStepResult[] = [];
 
-  results.push(await runPrismaCommand(PRISMA_DB_PULL_ARGS, 'schema introspection'));
-  results.push(await runPrismaCommand(PRISMA_GENERATE_ARGS, 'client generation'));
+  results.push(await runPrismaCommand(PRISMA_DB_PULL_ARGS, 'schema introspection', schemaPath));
 
   return results;
 }
@@ -138,7 +145,10 @@ export default async function handler(req: any, res: any) {
   prismaSyncInProgress = true;
 
   try {
-    const steps = await performPrismaSync();
+    const schemaPath = await prepareTemporarySchema();
+    logger.info('Prisma schema sync will use temporary schema copy', { schemaPath });
+    const steps = await performPrismaSync(schemaPath);
+    const updatedSchema = await readFile(schemaPath, 'utf8').catch(() => null);
     const responseSteps = steps.map(({ step, stdout, stderr }) => ({
       step,
       stdout: stdout.trim(),
@@ -152,6 +162,8 @@ export default async function handler(req: any, res: any) {
     res.status(200).json({
       message: 'Prisma schema synchronized successfully.',
       steps: responseSteps,
+      schemaPath,
+      schema: updatedSchema ?? undefined,
     });
   } catch (error) {
     logger.error('Prisma schema sync failed from Vercel function', {
