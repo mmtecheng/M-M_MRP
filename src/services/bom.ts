@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+
 import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 
@@ -66,12 +68,29 @@ function mapRecord(record: RawBomRecord): BomOverviewRow {
   };
 }
 
-export async function getBillOfMaterials(limit = 100): Promise<BomOverviewRow[]> {
-  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.trunc(limit), 200) : 100;
+type BomQueryOptions = {
+  limit?: number;
+  assembly?: string;
+};
 
-  logger.debug('Fetching bill of materials overview', { limit: safeLimit });
+export async function getBillOfMaterials(options: BomQueryOptions = {}): Promise<BomOverviewRow[]> {
+  const sanitizedAssembly = typeof options.assembly === 'string' ? options.assembly.trim() : '';
+  const requestedLimit = options.limit;
+  const defaultLimit = sanitizedAssembly.length > 0 ? 200 : 100;
+  const safeLimit =
+    Number.isFinite(requestedLimit) && (requestedLimit as number) > 0
+      ? Math.min(Math.trunc(requestedLimit as number), 200)
+      : defaultLimit;
 
-  const records = (await prisma.$queryRaw`
+  logger.debug('Fetching bill of materials overview', {
+    limit: safeLimit,
+    assembly: sanitizedAssembly || undefined,
+  });
+
+  const whereClause =
+    sanitizedAssembly.length > 0 ? Prisma.sql`WHERE b.Assembly = ${sanitizedAssembly}` : Prisma.sql``;
+
+  const records = (await prisma.$queryRaw<RawBomRecord[]>`
     SELECT
       b.Assembly,
       asm.DescText   AS AssemblyDescription,
@@ -87,6 +106,7 @@ export async function getBillOfMaterials(limit = 100): Promise<BomOverviewRow[]>
       ON asm.PartNumber = b.Assembly
     LEFT JOIN partmaster comp
       ON comp.PartNumber = b.Component
+    ${whereClause}
     ORDER BY b.Assembly ASC,
       CASE
         WHEN b.ItemSequence REGEXP '^[0-9]+$' THEN CAST(b.ItemSequence AS UNSIGNED)
@@ -94,7 +114,7 @@ export async function getBillOfMaterials(limit = 100): Promise<BomOverviewRow[]>
       END,
       b.Component ASC
     LIMIT ${safeLimit}
-  `) as RawBomRecord[];
+  `);
 
   return records.map(mapRecord);
 }

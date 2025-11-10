@@ -269,6 +269,24 @@ a:focus {
   background: var(--teal-50);
 }
 
+.data-table tbody tr[data-interactive] {
+  cursor: pointer;
+  transition: background var(--transition-default), box-shadow var(--transition-default);
+}
+
+.data-table tbody tr[data-interactive]:focus-visible {
+  outline: 2px solid rgba(0, 128, 128, 0.5);
+  outline-offset: -2px;
+}
+
+.data-table tbody tr.is-selected {
+  background: rgba(38, 170, 170, 0.18);
+}
+
+.data-table tbody tr.is-selected:hover {
+  background: rgba(38, 170, 170, 0.24);
+}
+
 .tag {
   display: inline-flex;
   align-items: center;

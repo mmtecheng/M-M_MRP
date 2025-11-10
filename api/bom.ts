@@ -13,9 +13,11 @@ export default async function handler(req: any, res: any) {
 
   const rawLimit = Array.isArray(req.query?.limit) ? req.query?.limit[0] : req.query?.limit;
   const limit = typeof rawLimit === 'string' ? Number.parseInt(rawLimit, 10) : undefined;
+  const rawAssembly = Array.isArray(req.query?.assembly) ? req.query?.assembly[0] : req.query?.assembly;
+  const assembly = typeof rawAssembly === 'string' ? rawAssembly.trim() : undefined;
 
   try {
-    const data = await getBillOfMaterials(limit);
+    const data = await getBillOfMaterials({ limit, assembly });
     res.status(200).json({ data });
   } catch (error) {
     logger.error('Failed to load bill of materials', { error: serializeError(error) });
