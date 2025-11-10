@@ -8,7 +8,10 @@ import process from 'node:process';
 import { summarizeConnectionString } from './lib/connectionString.js';
 import { logger, serializeError } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
+import { getBillOfMaterials } from './services/bom.js';
+import { getInventorySnapshot } from './services/inventory.js';
 import { searchParts } from './services/parts.js';
+import { getUnitsOfMeasure } from './services/uom.js';
 import type { PartSearchResult } from './services/parts.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
@@ -184,6 +187,61 @@ async function handlePartSearch(req: IncomingMessage, res: ServerResponse, searc
   }
 }
 
+function parseLimit(rawLimit: string | null): number | undefined {
+  if (!rawLimit) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(rawLimit, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+async function handleBillOfMaterials(res: ServerResponse, limit: number | undefined) {
+  try {
+    const data = await getBillOfMaterials(limit);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ data }));
+  } catch (error) {
+    logger.error('Bill of materials request failed', { error: serializeError(error) });
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ error: 'Unable to retrieve bill of materials.' }));
+  }
+}
+
+async function handleInventoryOverview(res: ServerResponse) {
+  try {
+    const data = await getInventorySnapshot();
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ data }));
+  } catch (error) {
+    logger.error('Inventory snapshot request failed', { error: serializeError(error) });
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ error: 'Unable to retrieve inventory snapshot.' }));
+  }
+}
+
+async function handleUnitsOfMeasure(res: ServerResponse, limit: number | undefined) {
+  try {
+    const data = await getUnitsOfMeasure(limit);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ data }));
+  } catch (error) {
+    logger.error('Units of measure request failed', { error: serializeError(error) });
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ error: 'Unable to retrieve units of measure.' }));
+  }
+}
+
 async function serveStaticAsset(res: ServerResponse, filePath: string) {
   try {
     const fileStat = await stat(filePath);
@@ -254,6 +312,21 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
 
   if (req.method === 'GET' && normalizedPath === '/api/parts') {
     await handlePartSearch(req, res, url.searchParams.get('search') ?? '');
+    return;
+  }
+
+  if (req.method === 'GET' && normalizedPath === '/api/bom') {
+    await handleBillOfMaterials(res, parseLimit(url.searchParams.get('limit')));
+    return;
+  }
+
+  if (req.method === 'GET' && normalizedPath === '/api/inventory') {
+    await handleInventoryOverview(res);
+    return;
+  }
+
+  if (req.method === 'GET' && normalizedPath === '/api/uom') {
+    await handleUnitsOfMeasure(res, parseLimit(url.searchParams.get('limit')));
     return;
   }
 
