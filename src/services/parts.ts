@@ -39,12 +39,19 @@ function coalesce(record: Record<string, unknown>, ...keys: string[]): string {
 function mapPartResult(record: Record<string, unknown>): PartSearchResult {
   return {
     partNumber: coalesce(record, 'PartNumber', 'partNumber', 'part_number', 'PartNo', 'part_no'),
-    description: coalesce(record, 'Description', 'description', 'PartDescription', 'part_description'),
+    description: coalesce(
+      record,
+      'DescText',
+      'Description',
+      'description',
+      'PartDescription',
+      'part_description',
+    ),
     revision: coalesce(record, 'Revision', 'revision', 'Rev', 'rev'),
     stockUom: coalesce(record, 'StockUOM', 'stockUom', 'StockUnit', 'stock_unit', 'StockingUOM', 'stocking_uom'),
     commodityCode: coalesce(record, 'CommodityCode', 'commodityCode', 'commodity_code'),
     abcCode: coalesce(record, 'ABCCode', 'abcCode', 'abc_code'),
-    status: coalesce(record, 'Status', 'status', 'PartStatus', 'part_status'),
+    status: coalesce(record, 'ISC', 'Status', 'status', 'PartStatus', 'part_status'),
   };
 }
 
@@ -54,8 +61,12 @@ export async function searchParts(term: string): Promise<PartSearchResult[]> {
     return [];
   }
 
-  const prefixWildcard = `${trimmed}%`;
-  const containsWildcard = `%${trimmed}%`;
+  const normalizedTerm = trimmed.replace(/\s+/g, ' ');
+  const lowerTerm = normalizedTerm.toLowerCase();
+  const alphanumericTerm = lowerTerm.replace(/[^a-z0-9]/g, '');
+  const prefixWildcard = `${lowerTerm}%`;
+  const containsWildcard = `%${lowerTerm}%`;
+  const collapsedWildcard = `%${alphanumericTerm || lowerTerm}%`;
 
   logger.debug('Executing part search query', {
     searchTermLength: trimmed.length,
@@ -64,17 +75,33 @@ export async function searchParts(term: string): Promise<PartSearchResult[]> {
 
   const results = (await prisma.$queryRaw`
     SELECT
-      PartNumber,
-      Description,
-      Revision,
-      StockUOM,
-      CommodityCode,
-      ABCCode,
-      Status
-    FROM partmaster
-    WHERE PartNumber LIKE ${prefixWildcard} OR Description LIKE ${containsWildcard}
-    ORDER BY PartNumber
-    LIMIT 25
+      pm.PartNumber,
+      pm.DescText,
+      pm.Revision,
+      pm.StockUOM,
+      pm.CommodityCode,
+      pm.ABCCode,
+      pm.ISC
+    FROM partmaster pm
+    WHERE
+      (
+        LOWER(pm.PartNumber) LIKE ${prefixWildcard}
+        OR LOWER(pm.PartNumber) LIKE ${containsWildcard}
+        OR REPLACE(REPLACE(LOWER(pm.PartNumber), '-', ''), ' ', '') LIKE ${collapsedWildcard}
+        OR LOWER(COALESCE(pm.DescText, '')) LIKE ${containsWildcard}
+        OR REPLACE(REPLACE(LOWER(COALESCE(pm.DescText, '')), '-', ''), ' ', '') LIKE ${collapsedWildcard}
+        OR EXISTS (
+          SELECT 1
+          FROM partxreference px
+          WHERE px.PartNumber = pm.PartNumber
+            AND (
+              LOWER(COALESCE(px.PartXReference, '')) LIKE ${containsWildcard}
+              OR REPLACE(REPLACE(LOWER(COALESCE(px.PartXReference, '')), '-', ''), ' ', '') LIKE ${collapsedWildcard}
+            )
+        )
+      )
+    ORDER BY pm.PartNumber
+    LIMIT 50
   `) as Record<string, unknown>[];
 
   return results.map(mapPartResult);
