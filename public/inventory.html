@@ -52,6 +52,24 @@
       <section class="card" data-entity="PartMaster">
         <h3 class="section-title">Part Master Overview</h3>
         <p class="section-description">Aligns with <code>PartMaster</code>, <code>PartDocuments</code>, and related classification tables. Intended to surface key properties per part number.</p>
+        <div class="field-grid">
+          <div class="field">
+            <label for="part-search">Search Part Number</label>
+            <input id="part-search" type="search" placeholder="e.g. PCB-ASSY-1001" />
+          </div>
+          <div class="field">
+            <label for="commodity-filter">Commodity Code</label>
+            <select id="commodity-filter">
+              <option value="">All Commodities</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="uom-filter">Stock UOM</label>
+            <select id="uom-filter">
+              <option value="">All Units</option>
+            </select>
+          </div>
+        </div>
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
@@ -71,24 +89,6 @@
               </tr>
             </tbody>
           </table>
-        </div>
-        <div class="field-grid">
-          <div class="field">
-            <label for="part-search">Search Part Number</label>
-            <input id="part-search" type="search" placeholder="e.g. PCB-ASSY-1001" />
-          </div>
-          <div class="field">
-            <label for="commodity-filter">Commodity Code</label>
-            <select id="commodity-filter">
-              <option value="">All Commodities</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="uom-filter">Stock UOM</label>
-            <select id="uom-filter">
-              <option value="">All Units</option>
-            </select>
-          </div>
         </div>
       </section>
 
