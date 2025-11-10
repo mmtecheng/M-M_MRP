@@ -13,6 +13,19 @@ function resolveQueryParam(value: unknown): string {
   return '';
 }
 
+function parseBooleanFlag(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => parseBooleanFlag(item));
+  }
+
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+}
+
 export default async function handler(req: any, res: any) {
   const method = req.method ?? 'GET';
 
@@ -23,32 +36,45 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const searchTerm = resolveQueryParam(req.query?.search);
+  const partNumber = resolveQueryParam(req.query?.partNumber).trim();
+  const description = resolveQueryParam(req.query?.description).trim();
+  const inStockOnly = parseBooleanFlag(req.query?.inStock);
 
-  if (searchTerm.trim().length === 0) {
-    logger.warn('Rejected part search without search term');
-    res.status(400).json({ error: 'Search term is required.' });
+  if (partNumber.length === 0 && description.length === 0 && !inStockOnly) {
+    logger.warn('Rejected part search without filters', { source: 'vercel-function' });
+    res
+      .status(400)
+      .json({ error: 'Provide a part number, description, or enable the In Stock filter.' });
     return;
   }
 
   logger.info('Incoming part search request', {
-    searchTermLength: searchTerm.length,
-    searchTermPreview: searchTerm.trim().slice(0, 32),
+    partNumberLength: partNumber.length,
+    descriptionLength: description.length,
+    inStockOnly,
     source: 'vercel-function',
   });
 
   try {
-    const data = await searchParts(searchTerm);
+    const data = await searchParts({
+      partNumber,
+      description,
+      inStockOnly,
+    });
     res.status(200).json({ data });
 
     logger.info('Part search completed', {
       resultCount: data.length,
-      searchTermLength: searchTerm.length,
+      partNumberLength: partNumber.length,
+      descriptionLength: description.length,
+      inStockOnly,
       source: 'vercel-function',
     });
   } catch (error) {
     logger.error('Part search failed', {
-      searchTermLength: searchTerm.length,
+      partNumberLength: partNumber.length,
+      descriptionLength: description.length,
+      inStockOnly,
       error: serializeError(error),
       source: 'vercel-function',
     });
