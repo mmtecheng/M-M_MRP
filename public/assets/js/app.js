@@ -256,42 +256,47 @@ function initInventorySearch() {
 function initBillOfMaterials() {
   const tableBody = document.querySelector('[data-bom-results]');
   const assemblyDetailTarget = document.querySelector('[data-bom-assembly]');
+  const availabilityContainer = document.querySelector('[data-bom-availability]');
+  const availabilityValue = document.querySelector('[data-bom-available]');
+  const calculatorButton = document.querySelector('[data-bom-calculator]');
+  const modal = document.querySelector('[data-bom-calculator-modal]');
+  const modalTitle = modal?.querySelector('[data-bom-modal-title]');
+  const calculatorForm = modal?.querySelector('[data-bom-calculator-form]');
+  const quantityInput = modal?.querySelector('[data-bom-quantity-input]');
+  const shortageSection = modal?.querySelector('[data-bom-shortage]');
+  const shortageBody = modal?.querySelector('[data-bom-shortage-results]');
+  const returnButton = modal?.querySelector('[data-bom-return]');
 
   if (!tableBody) {
     return;
   }
 
   const COLUMN_COUNT = 7;
+  const defaultShortageMessage = 'Enter an assembly quantity to calculate parts short.';
   let activeController = null;
+  let currentItems = [];
+  let isModalOpen = false;
 
-  const updateAssemblyDetail = (value) => {
-    if (!assemblyDetailTarget) {
-      return;
-    }
-
-    const detail = typeof value === 'string' ? value.trim() : '';
-
-    if (detail.length > 0) {
-      assemblyDetailTarget.textContent = detail;
-      assemblyDetailTarget.hidden = false;
-    } else {
-      assemblyDetailTarget.textContent = '';
-      assemblyDetailTarget.hidden = true;
-    }
+  const currentAssembly = {
+    number: '',
+    description: '',
+    detailText: '',
   };
 
-  const showMessage = (message) => {
-    tableBody.innerHTML = '';
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-    cell.colSpan = COLUMN_COUNT;
-    cell.dataset.bomMessage = '';
-    cell.textContent = message;
-    row.appendChild(cell);
-    tableBody.appendChild(row);
+  const numberFormatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
 
-    updateAssemblyDetail('');
-  };
+  const stockFormatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+
+  const assemblyCountFormatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 
   const formatPart = (partNumber, description) => {
     const number = partNumber && partNumber.length > 0 ? partNumber : '—';
@@ -331,15 +336,253 @@ function initBillOfMaterials() {
     });
   };
 
-  const numberFormatter = new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 4,
-  });
+  const resetModal = () => {
+    if (calculatorForm) {
+      calculatorForm.reset();
+    }
 
-  const stockFormatter = new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
+    if (quantityInput) {
+      quantityInput.value = '';
+    }
+
+    if (shortageSection) {
+      shortageSection.hidden = true;
+    }
+
+    if (shortageBody) {
+      shortageBody.innerHTML = '';
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 2;
+      cell.textContent = defaultShortageMessage;
+      row.appendChild(cell);
+      shortageBody.appendChild(row);
+    }
+  };
+
+  const closeModal = () => {
+    if (!modal || !isModalOpen) {
+      return;
+    }
+
+    modal.hidden = true;
+    isModalOpen = false;
+    document.body.classList.remove('is-modal-open');
+    document.removeEventListener('keydown', handleModalKeydown);
+    resetModal();
+  };
+
+  const updateAssemblyDetail = (partNumber, description) => {
+    currentAssembly.number = typeof partNumber === 'string' ? partNumber.trim() : '';
+    currentAssembly.description = typeof description === 'string' ? description.trim() : '';
+    currentAssembly.detailText = formatAssemblyDetail(currentAssembly.number, currentAssembly.description);
+
+    if (!assemblyDetailTarget) {
+      return;
+    }
+
+    if (currentAssembly.detailText.length > 0) {
+      assemblyDetailTarget.textContent = currentAssembly.detailText;
+      assemblyDetailTarget.hidden = false;
+    } else {
+      assemblyDetailTarget.textContent = '';
+      assemblyDetailTarget.hidden = true;
+    }
+  };
+
+  const resetAvailability = () => {
+    if (availabilityValue) {
+      availabilityValue.textContent = '—';
+    }
+
+    if (availabilityContainer) {
+      availabilityContainer.hidden = true;
+    }
+
+    if (calculatorButton) {
+      calculatorButton.disabled = true;
+    }
+  };
+
+  const computeAssembliesAvailable = (items) => {
+    if (!Array.isArray(items) || items.length === 0) {
+      return 0;
+    }
+
+    let minAssemblies = Infinity;
+
+    items.forEach((item) => {
+      const qtyPer = Number(item.quantityPer);
+
+      if (!Number.isFinite(qtyPer) || qtyPer <= 0) {
+        minAssemblies = 0;
+        return;
+      }
+
+      const stock = Number(item.availableQuantity);
+      const availableQuantity = Number.isFinite(stock) ? Math.max(stock, 0) : 0;
+      const possibleAssemblies = availableQuantity / qtyPer;
+
+      if (!Number.isFinite(possibleAssemblies)) {
+        minAssemblies = 0;
+        return;
+      }
+
+      minAssemblies = Math.min(minAssemblies, possibleAssemblies);
+    });
+
+    if (!Number.isFinite(minAssemblies) || minAssemblies === Infinity) {
+      return 0;
+    }
+
+    const floored = Math.floor(minAssemblies);
+    return floored >= 0 ? floored : 0;
+  };
+
+  const updateAvailability = (items) => {
+    if (!availabilityValue || !availabilityContainer) {
+      return;
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      resetAvailability();
+      return;
+    }
+
+    const availableCount = computeAssembliesAvailable(items);
+    availabilityValue.textContent = assemblyCountFormatter.format(availableCount);
+    availabilityContainer.hidden = false;
+
+    if (calculatorButton) {
+      calculatorButton.disabled = false;
+    }
+  };
+
+  const getAssemblyTitle = () => {
+    if (currentAssembly.detailText) {
+      return currentAssembly.detailText;
+    }
+
+    if (currentAssembly.number) {
+      return currentAssembly.number;
+    }
+
+    return 'Selected Assembly';
+  };
+
+  const handleModalKeydown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeModal();
+    }
+  };
+
+  const openModal = () => {
+    if (!modal || calculatorButton?.disabled) {
+      return;
+    }
+
+    resetModal();
+
+    if (modalTitle) {
+      modalTitle.textContent = `Calculate Parts Short for Assembly '${getAssemblyTitle()}'`;
+    }
+
+    modal.hidden = false;
+    isModalOpen = true;
+    document.body.classList.add('is-modal-open');
+    document.addEventListener('keydown', handleModalKeydown);
+
+    window.requestAnimationFrame(() => {
+      quantityInput?.focus();
+    });
+  };
+
+  const renderShortages = (assembliesNeeded) => {
+    if (shortageSection) {
+      shortageSection.hidden = false;
+    }
+
+    if (!shortageBody) {
+      return;
+    }
+
+    shortageBody.innerHTML = '';
+
+    if (!Array.isArray(currentItems) || currentItems.length === 0) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 2;
+      cell.textContent = 'No bill of materials loaded.';
+      row.appendChild(cell);
+      shortageBody.appendChild(row);
+      return;
+    }
+
+    const shortages = [];
+
+    currentItems.forEach((item) => {
+      const qtyPer = Number(item.quantityPer);
+
+      if (!Number.isFinite(qtyPer) || qtyPer <= 0) {
+        return;
+      }
+
+      const stock = Number(item.availableQuantity);
+      const availableQuantity = Number.isFinite(stock) ? Math.max(stock, 0) : 0;
+      const requiredQuantity = qtyPer * assembliesNeeded;
+      const shortageValue = Math.max(0, requiredQuantity - availableQuantity);
+
+      if (shortageValue <= 0) {
+        return;
+      }
+
+      shortages.push({
+        component: formatPart(item.component, item.componentDescription),
+        quantity: shortageValue,
+      });
+    });
+
+    if (shortages.length === 0) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 2;
+      cell.textContent = 'All components are sufficiently stocked.';
+      row.appendChild(cell);
+      shortageBody.appendChild(row);
+      return;
+    }
+
+    shortages.forEach((entry) => {
+      const row = document.createElement('tr');
+
+      const componentCell = document.createElement('td');
+      componentCell.textContent = entry.component;
+      row.appendChild(componentCell);
+
+      const quantityCell = document.createElement('td');
+      quantityCell.textContent = numberFormatter.format(entry.quantity);
+      row.appendChild(quantityCell);
+
+      shortageBody.appendChild(row);
+    });
+  };
+
+  const showMessage = (message) => {
+    tableBody.innerHTML = '';
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = COLUMN_COUNT;
+    cell.dataset.bomMessage = '';
+    cell.textContent = message;
+    row.appendChild(cell);
+    tableBody.appendChild(row);
+
+    currentItems = [];
+    updateAssemblyDetail('', '');
+    resetAvailability();
+    closeModal();
+  };
 
   const renderRows = (items) => {
     tableBody.innerHTML = '';
@@ -349,9 +592,11 @@ function initBillOfMaterials() {
       return;
     }
 
-    updateAssemblyDetail(formatAssemblyDetail(items[0].assembly, items[0].assemblyDescription));
+    currentItems = items.slice();
+    updateAssemblyDetail(items[0].assembly, items[0].assemblyDescription);
+    updateAvailability(currentItems);
 
-    items.forEach((item) => {
+    currentItems.forEach((item) => {
       const row = document.createElement('tr');
 
       const cells = [
@@ -418,6 +663,50 @@ function initBillOfMaterials() {
       showMessage('Unable to retrieve bill of materials.');
     }
   };
+
+  if (calculatorButton) {
+    calculatorButton.addEventListener('click', () => {
+      openModal();
+    });
+  }
+
+  if (returnButton) {
+    returnButton.addEventListener('click', () => {
+      closeModal();
+    });
+  }
+
+  if (modal) {
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) {
+        closeModal();
+      }
+    });
+  }
+
+  if (calculatorForm) {
+    calculatorForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      if (!calculatorForm.checkValidity()) {
+        calculatorForm.reportValidity();
+        return;
+      }
+
+      const requested = Math.floor(Number(quantityInput?.value ?? 0));
+
+      if (!Number.isFinite(requested) || requested < 1) {
+        calculatorForm.reportValidity();
+        return;
+      }
+
+      if (quantityInput) {
+        quantityInput.value = String(requested);
+      }
+
+      renderShortages(requested);
+    });
+  }
 
   document.addEventListener('inventory:part-selected', (event) => {
     const detail = event?.detail ?? {};

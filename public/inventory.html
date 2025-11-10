@@ -90,8 +90,30 @@
 
       <section class="card" data-entity="BOM">
         <div class="section-heading">
-          <h3 class="section-title">Bill of Materials</h3>
-          <span class="section-title__detail" data-bom-assembly hidden></span>
+          <div class="section-heading__title-group">
+            <h3 class="section-title">Bill of Materials</h3>
+            <span class="section-title__detail" data-bom-assembly hidden></span>
+          </div>
+          <div class="section-heading__meta" data-bom-availability hidden>
+            <button
+              type="button"
+              class="button button--ghost button--icon"
+              data-bom-calculator
+              aria-label="Open parts short calculator"
+              disabled
+            >
+              <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                <path
+                  d="M6.5 3h11A2.5 2.5 0 0 1 20 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-13A2.5 2.5 0 0 1 6.5 3Zm0 2A.5.5 0 0 0 6 5.5v13a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-13a.5.5 0 0 0-.5-.5h-11ZM8 7h8v2H8V7Zm0 4h3v3H8v-3Zm0 5h3v3H8v-3Zm5-5h3v3h-3v-3Zm0 5h3v3h-3v-3Z"
+                />
+              </svg>
+              <span class="sr-only">Open parts short calculator</span>
+            </button>
+            <div class="section-heading__stat">
+              <span class="section-heading__stat-label">Available to Make</span>
+              <span class="section-heading__stat-value" data-bom-available>—</span>
+            </div>
+          </div>
         </div>
         <p class="section-description">Derived from <code>BOM</code> and <code>RefDesignators</code>. Visualize component relationships and effectivity windows.</p>
         <div class="table-wrapper">
@@ -115,6 +137,53 @@
           </table>
         </div>
       </section>
+
+      <div class="modal" data-bom-calculator-modal hidden>
+        <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="bom-calculator-title">
+          <div class="modal__header">
+            <h4 class="modal__title" id="bom-calculator-title" data-bom-modal-title>
+              Calculate Parts Short for Assembly
+            </h4>
+          </div>
+          <div class="modal__body">
+            <form class="modal__form" data-bom-calculator-form novalidate>
+              <label class="modal__label" for="bom-assembly-count">Assemblies Needed</label>
+              <div class="modal__input-row">
+                <input
+                  id="bom-assembly-count"
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  step="1"
+                  required
+                  data-bom-quantity-input
+                />
+                <button type="submit" class="button button--primary">Calculate</button>
+              </div>
+            </form>
+            <div class="modal__results" data-bom-shortage hidden>
+              <div class="table-wrapper">
+                <table class="data-table data-table--compact">
+                  <thead>
+                    <tr>
+                      <th>Component</th>
+                      <th>Qty to Order</th>
+                    </tr>
+                  </thead>
+                  <tbody data-bom-shortage-results>
+                    <tr>
+                      <td colspan="2">Enter an assembly quantity to calculate parts short.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="modal__footer">
+            <button type="button" class="button button--secondary" data-bom-return>Return</button>
+          </div>
+        </div>
+      </div>
 
       <section class="card" data-entity="InventoryLots">
         <h3 class="section-title">Inventory &amp; Traceability</h3>
