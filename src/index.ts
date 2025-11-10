@@ -200,9 +200,16 @@ function parseLimit(rawLimit: string | null): number | undefined {
   return parsed;
 }
 
-async function handleBillOfMaterials(res: ServerResponse, limit: number | undefined) {
+async function handleBillOfMaterials(
+  res: ServerResponse,
+  limit: number | undefined,
+  assembly: string | null,
+) {
   try {
-    const data = await getBillOfMaterials(limit);
+    const data = await getBillOfMaterials({
+      limit,
+      assembly: assembly?.trim() || undefined,
+    });
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ data }));
@@ -316,7 +323,11 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
   }
 
   if (req.method === 'GET' && normalizedPath === '/api/bom') {
-    await handleBillOfMaterials(res, parseLimit(url.searchParams.get('limit')));
+    await handleBillOfMaterials(
+      res,
+      parseLimit(url.searchParams.get('limit')),
+      url.searchParams.get('assembly'),
+    );
     return;
   }
 

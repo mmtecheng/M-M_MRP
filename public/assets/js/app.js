@@ -46,6 +46,24 @@ function initInventorySearch() {
 
   let debounceTimer = 0;
   let activeController = null;
+  let selectedRow = null;
+  let selectedPartNumber = '';
+
+  const clearSelection = () => {
+    const hadSelection = Boolean(selectedRow || selectedPartNumber);
+
+    if (selectedRow) {
+      selectedRow.classList.remove('is-selected');
+      selectedRow.removeAttribute('aria-selected');
+      selectedRow = null;
+    }
+
+    selectedPartNumber = '';
+
+    if (hadSelection) {
+      document.dispatchEvent(new CustomEvent('inventory:part-cleared'));
+    }
+  };
 
   const showMessage = (message) => {
     resultsBody.innerHTML = '';
@@ -56,12 +74,49 @@ function initInventorySearch() {
     cell.textContent = message;
     row.appendChild(cell);
     resultsBody.appendChild(row);
+
+    clearSelection();
   };
 
   const renderRows = (parts) => {
     resultsBody.innerHTML = '';
+    let foundSelection = false;
+
     parts.forEach((part) => {
       const row = document.createElement('tr');
+      row.dataset.interactive = '';
+      row.tabIndex = 0;
+      row.setAttribute('role', 'row');
+
+      const handleSelection = () => {
+        if (selectedRow && selectedRow !== row) {
+          selectedRow.classList.remove('is-selected');
+          selectedRow.removeAttribute('aria-selected');
+        }
+
+        selectedRow = row;
+        selectedPartNumber = part.partNumber;
+        row.classList.add('is-selected');
+        row.setAttribute('aria-selected', 'true');
+
+        document.dispatchEvent(
+          new CustomEvent('inventory:part-selected', {
+            detail: {
+              partNumber: part.partNumber,
+              description: part.description,
+            },
+          }),
+        );
+      };
+
+      row.addEventListener('click', handleSelection);
+      row.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleSelection();
+        }
+      });
+
       const cells = [
         part.partNumber,
         part.description,
@@ -78,8 +133,19 @@ function initInventorySearch() {
         row.appendChild(cell);
       });
 
+      if (selectedPartNumber && part.partNumber === selectedPartNumber) {
+        row.classList.add('is-selected');
+        row.setAttribute('aria-selected', 'true');
+        selectedRow = row;
+        foundSelection = true;
+      }
+
       resultsBody.appendChild(row);
     });
+
+    if (selectedPartNumber && !foundSelection) {
+      clearSelection();
+    }
   };
 
   const performSearch = async () => {
@@ -144,6 +210,8 @@ function initBillOfMaterials() {
   if (!tableBody) {
     return;
   }
+
+  let activeController = null;
 
   const showMessage = (message) => {
     tableBody.innerHTML = '';
@@ -217,11 +285,30 @@ function initBillOfMaterials() {
     });
   };
 
-  const loadData = async () => {
+  const loadData = async (assembly) => {
+    const trimmedAssembly = typeof assembly === 'string' ? assembly.trim() : '';
+
+    if (!trimmedAssembly) {
+      showMessage('Select a part to view its bill of materials.');
+      return;
+    }
+
     showMessage('Loading bill of materials…');
 
+    if (activeController && typeof activeController.abort === 'function') {
+      activeController.abort();
+    }
+
+    activeController = typeof AbortController === 'undefined' ? null : new AbortController();
+
     try {
-      const response = await fetch('/api/bom');
+      const fetchOptions = {};
+
+      if (activeController) {
+        fetchOptions.signal = activeController.signal;
+      }
+
+      const response = await fetch(`/api/bom?assembly=${encodeURIComponent(trimmedAssembly)}`, fetchOptions);
 
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
@@ -230,12 +317,25 @@ function initBillOfMaterials() {
       const payload = await response.json();
       renderRows(payload?.data ?? []);
     } catch (error) {
+      if (error.name === 'AbortError') {
+        return;
+      }
+
       console.error('Failed to load bill of materials:', error);
       showMessage('Unable to retrieve bill of materials.');
     }
   };
 
-  void loadData();
+  document.addEventListener('inventory:part-selected', (event) => {
+    const detail = event?.detail ?? {};
+    void loadData(detail.partNumber);
+  });
+
+  document.addEventListener('inventory:part-cleared', () => {
+    showMessage('Select a part to view its bill of materials.');
+  });
+
+  showMessage('Select a part to view its bill of materials.');
 }
 
 function initInventorySnapshot() {
