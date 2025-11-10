@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { mkdir } from 'node:fs/promises';
 import process from 'node:process';
 
 import { summarizeConnectionString } from '../../src/lib/connectionString.js';
@@ -20,9 +21,28 @@ let prismaSyncInProgress = false;
 async function runPrismaCommand(args: string[], step: string): Promise<PrismaStepResult> {
   logger.info('Starting Prisma command from Vercel function', { step, args });
 
+  const homeDir = process.env.HOME ?? '/tmp';
+  const npmCacheDir = process.env.NPM_CONFIG_CACHE ?? process.env.npm_config_cache ?? `${homeDir}/.npm`;
+  const npmTmpDir = process.env.NPM_CONFIG_TMP ?? process.env.npm_config_tmp ?? `${homeDir}/tmp`;
+
+  await Promise.all([
+    mkdir(homeDir, { recursive: true }).catch(() => undefined),
+    mkdir(npmCacheDir, { recursive: true }).catch(() => undefined),
+    mkdir(npmTmpDir, { recursive: true }).catch(() => undefined),
+  ]);
+
+  const env = {
+    ...process.env,
+    HOME: homeDir,
+    NPM_CONFIG_CACHE: npmCacheDir,
+    npm_config_cache: npmCacheDir,
+    NPM_CONFIG_TMP: npmTmpDir,
+    npm_config_tmp: npmTmpDir,
+  };
+
   return await new Promise<PrismaStepResult>((resolve, reject) => {
     const child = spawn(EXECUTABLE, [PRISMA_COMMAND, ...args], {
-      env: process.env,
+      env,
       shell: process.platform === 'win32',
     });
 
