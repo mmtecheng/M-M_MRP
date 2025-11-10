@@ -13,6 +13,9 @@ type RawBomRecord = {
   EffectiveDate: Date | string | null;
   ObsoleteDate: Date | string | null;
   Notes: string | null;
+  ComponentLocationCode: string | null;
+  ComponentLocationDescription: string | null;
+  AvailableQuantity: Prisma.Decimal | number | string | null;
 };
 
 export type BomOverviewRow = {
@@ -20,7 +23,8 @@ export type BomOverviewRow = {
   assemblyDescription: string;
   component: string;
   componentDescription: string;
-  sequence: string;
+  componentLocation: string;
+  availableQuantity: number | null;
   quantityPer: number | null;
   effectiveDate: string | null;
   obsoleteDate: string | null;
@@ -39,6 +43,30 @@ function normalize(value: unknown): string {
   return '';
 }
 
+function coerceNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  if (value instanceof Prisma.Decimal) {
+    const parsed = value.toNumber();
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 function coerceDate(value: unknown): string | null {
   if (!value) {
     return null;
@@ -53,12 +81,17 @@ function coerceDate(value: unknown): string | null {
 }
 
 function mapRecord(record: RawBomRecord): BomOverviewRow {
+  const locationDescription = normalize(record.ComponentLocationDescription).trim();
+  const locationCode = normalize(record.ComponentLocationCode).trim();
+  const availableQuantity = coerceNumber(record.AvailableQuantity);
+
   return {
     assembly: normalize(record.Assembly).trim(),
     assemblyDescription: normalize(record.AssemblyDescription).trim(),
     component: normalize(record.Component).trim(),
     componentDescription: normalize(record.ComponentDescription).trim(),
-    sequence: normalize(record.ItemSequence).trim(),
+    componentLocation: locationDescription.length > 0 ? locationDescription : locationCode,
+    availableQuantity: typeof availableQuantity === 'number' ? availableQuantity : null,
     quantityPer: typeof record.QuantityPer === 'number' && Number.isFinite(record.QuantityPer)
       ? record.QuantityPer
       : null,
@@ -100,12 +133,34 @@ export async function getBillOfMaterials(options: BomQueryOptions = {}): Promise
       b.QuantityPer,
       b.EffectiveDate,
       b.ObsoleteDate,
-      b.Notes
+      b.Notes,
+      comp.LocationCode AS ComponentLocationCode,
+      sl.LocationDescription AS ComponentLocationDescription,
+      GREATEST(COALESCE(il.quantityOnHand, 0) - COALESCE(it.quantityAllocated, 0), 0) AS AvailableQuantity
     FROM bom b
     LEFT JOIN partmaster asm
       ON asm.PartNumber = b.Assembly
     LEFT JOIN partmaster comp
       ON comp.PartNumber = b.Component
+    LEFT JOIN (
+      SELECT PartNumber, SUM(Quantity) AS quantityOnHand
+      FROM inventorylots
+      GROUP BY PartNumber
+    ) il
+      ON il.PartNumber = b.Component
+    LEFT JOIN (
+      SELECT PartNumber, SUM(InventoryQuantity) AS quantityAllocated
+      FROM inventorytags
+      WHERE InventoryQuantity IS NOT NULL
+      GROUP BY PartNumber
+    ) it
+      ON it.PartNumber = b.Component
+    LEFT JOIN (
+      SELECT LocationCode, MAX(NULLIF(TRIM(DescText), '')) AS LocationDescription
+      FROM stocklocations
+      GROUP BY LocationCode
+    ) sl
+      ON sl.LocationCode = comp.LocationCode
     ${whereClause}
     ORDER BY b.Assembly ASC,
       CASE
