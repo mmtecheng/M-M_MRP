@@ -26,6 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (bodyPage === 'inventory') {
     initInventorySearch();
+    initBillOfMaterials();
+    initInventorySnapshot();
+    initUnitsOfMeasure();
   }
 
   if (bodyPage === 'dashboard') {
@@ -133,6 +136,279 @@ function initInventorySearch() {
   });
 
   showMessage('Enter a part number to search.');
+}
+
+function initBillOfMaterials() {
+  const tableBody = document.querySelector('[data-bom-results]');
+
+  if (!tableBody) {
+    return;
+  }
+
+  const showMessage = (message) => {
+    tableBody.innerHTML = '';
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 7;
+    cell.dataset.bomMessage = '';
+    cell.textContent = message;
+    row.appendChild(cell);
+    tableBody.appendChild(row);
+  };
+
+  const formatPart = (partNumber, description) => {
+    const number = partNumber && partNumber.length > 0 ? partNumber : '—';
+    const desc = description && description.length > 0 ? description : '';
+    return desc ? `${number} — ${desc}` : number;
+  };
+
+  const formatDate = (value) => {
+    if (!value) {
+      return '—';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '—';
+    }
+
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    });
+  };
+
+  const numberFormatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
+
+  const renderRows = (items) => {
+    tableBody.innerHTML = '';
+
+    if (!Array.isArray(items) || items.length === 0) {
+      showMessage('No bill of materials records available.');
+      return;
+    }
+
+    items.forEach((item) => {
+      const row = document.createElement('tr');
+
+      const cells = [
+        formatPart(item.assembly, item.assemblyDescription),
+        formatPart(item.component, item.componentDescription),
+        item.sequence && item.sequence.length > 0 ? item.sequence : '—',
+        typeof item.quantityPer === 'number' && !Number.isNaN(item.quantityPer)
+          ? numberFormatter.format(item.quantityPer)
+          : '—',
+        formatDate(item.effectiveDate),
+        formatDate(item.obsoleteDate),
+        item.notes && item.notes.length > 0 ? item.notes : '—',
+      ];
+
+      cells.forEach((value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
+
+      tableBody.appendChild(row);
+    });
+  };
+
+  const loadData = async () => {
+    showMessage('Loading bill of materials…');
+
+    try {
+      const response = await fetch('/api/bom');
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const payload = await response.json();
+      renderRows(payload?.data ?? []);
+    } catch (error) {
+      console.error('Failed to load bill of materials:', error);
+      showMessage('Unable to retrieve bill of materials.');
+    }
+  };
+
+  void loadData();
+}
+
+function initInventorySnapshot() {
+  const onHandTarget = document.querySelector('[data-placeholder="on-hand"]');
+  const allocatedTarget = document.querySelector('[data-placeholder="allocated"]');
+  const availableTarget = document.querySelector('[data-placeholder="available"]');
+  const lotCountTarget = document.querySelector('[data-placeholder="lot-count"]');
+  const lastReceiptTarget = document.querySelector('[data-placeholder="last-receipt"]');
+
+  if (!onHandTarget || !allocatedTarget || !availableTarget) {
+    return;
+  }
+
+  const numberFormatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+
+  const assignText = (node, value) => {
+    if (!node) {
+      return;
+    }
+
+    node.textContent = value;
+  };
+
+  const formatDate = (value) => {
+    if (!value) {
+      return '—';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '—';
+    }
+
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    });
+  };
+
+  const loadSnapshot = async () => {
+    assignText(onHandTarget, 'Loading…');
+    assignText(allocatedTarget, 'Loading…');
+    assignText(availableTarget, 'Loading…');
+    assignText(lotCountTarget, 'Loading…');
+    assignText(lastReceiptTarget, 'Loading…');
+
+    try {
+      const response = await fetch('/api/inventory');
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const payload = await response.json();
+      const snapshot = payload?.data ?? {};
+
+      assignText(
+        onHandTarget,
+        typeof snapshot.quantityOnHand === 'number'
+          ? numberFormatter.format(snapshot.quantityOnHand)
+          : '—',
+      );
+
+      assignText(
+        allocatedTarget,
+        typeof snapshot.quantityAllocated === 'number'
+          ? numberFormatter.format(snapshot.quantityAllocated)
+          : '—',
+      );
+
+      assignText(
+        availableTarget,
+        typeof snapshot.quantityAvailable === 'number'
+          ? numberFormatter.format(snapshot.quantityAvailable)
+          : '—',
+      );
+
+      assignText(
+        lotCountTarget,
+        typeof snapshot.lotCount === 'number' ? numberFormatter.format(snapshot.lotCount) : '—',
+      );
+
+      assignText(lastReceiptTarget, formatDate(snapshot.lastReceiptDate));
+    } catch (error) {
+      console.error('Failed to load inventory snapshot:', error);
+      assignText(onHandTarget, '—');
+      assignText(allocatedTarget, '—');
+      assignText(availableTarget, '—');
+      assignText(lotCountTarget, '—');
+      assignText(lastReceiptTarget, '—');
+    }
+  };
+
+  void loadSnapshot();
+}
+
+function initUnitsOfMeasure() {
+  const tableBody = document.querySelector('[data-uom-results]');
+
+  if (!tableBody) {
+    return;
+  }
+
+  const showMessage = (message) => {
+    tableBody.innerHTML = '';
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 5;
+    cell.dataset.uomMessage = '';
+    cell.textContent = message;
+    row.appendChild(cell);
+    tableBody.appendChild(row);
+  };
+
+  const numberFormatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6,
+  });
+
+  const renderRows = (items) => {
+    tableBody.innerHTML = '';
+
+    if (!Array.isArray(items) || items.length === 0) {
+      showMessage('No units of measure configured.');
+      return;
+    }
+
+    items.forEach((item) => {
+      const row = document.createElement('tr');
+
+      const cells = [
+        item.code && item.code.length > 0 ? item.code : '—',
+        item.description && item.description.length > 0 ? item.description : '—',
+        item.type && item.type.length > 0 ? item.type : '—',
+        typeof item.conversionFactor === 'number' && !Number.isNaN(item.conversionFactor)
+          ? numberFormatter.format(item.conversionFactor)
+          : '—',
+        item.usage && item.usage.length > 0 ? item.usage : '—',
+      ];
+
+      cells.forEach((value) => {
+        const cell = document.createElement('td');
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
+
+      tableBody.appendChild(row);
+    });
+  };
+
+  const loadData = async () => {
+    showMessage('Loading units of measure…');
+
+    try {
+      const response = await fetch('/api/uom');
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const payload = await response.json();
+      renderRows(payload?.data ?? []);
+    } catch (error) {
+      console.error('Failed to load units of measure:', error);
+      showMessage('Unable to retrieve units of measure.');
+    }
+  };
+
+  void loadData();
 }
 
 function initDashboardAdminTools() {
