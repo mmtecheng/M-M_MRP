@@ -17,6 +17,12 @@ type PartSearchOptions = {
   partNumber: string;
   description: string;
   inStockOnly: boolean;
+  limit?: number;
+};
+
+type WildcardQuery = {
+  segments: string[];
+  hasLeadingWildcard: boolean;
 };
 
 function normalizeString(value: unknown) {
@@ -61,6 +67,54 @@ function asNumber(value: unknown): number {
   }
 
   return 0;
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/([%_])/g, '\\$1');
+}
+
+function parseWildcardQuery(value: string): WildcardQuery | null {
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const normalized = trimmed.replace(/\s+/g, ' ');
+  const hasLeadingWildcard = normalized.startsWith('*');
+  const segments = normalized
+    .split('*')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+
+  if (segments.length === 0) {
+    return null;
+  }
+
+  return { segments, hasLeadingWildcard };
+}
+
+function buildLikePattern(
+  segments: string[],
+  hasLeadingWildcard: boolean,
+  transform: (segment: string) => string,
+): string | null {
+  const transformed = segments
+    .map((segment) => transform(segment))
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+
+  if (transformed.length === 0) {
+    return null;
+  }
+
+  let pattern = hasLeadingWildcard ? '%' : '';
+  pattern += transformed.map((segment) => escapeLikePattern(segment)).join('%');
+
+  if (!pattern.endsWith('%')) {
+    pattern += '%';
+  }
+
+  return pattern;
 }
 
 function mapPartResult(record: Record<string, unknown>): PartSearchResult {
@@ -114,43 +168,68 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
   const partNumber = typeof options.partNumber === 'string' ? options.partNumber.trim() : '';
   const description = typeof options.description === 'string' ? options.description.trim() : '';
   const inStockOnly = Boolean(options.inStockOnly);
+  const limit = typeof options.limit === 'number' && Number.isFinite(options.limit) ? options.limit : undefined;
 
   const whereClauses: Prisma.Sql[] = [];
 
   if (partNumber.length > 0) {
-    const normalizedPart = partNumber.replace(/\s+/g, ' ');
-    const lowerPart = normalizedPart.toLowerCase();
-    const collapsedPart = lowerPart.replace(/[^a-z0-9]/g, '');
-    const prefixWildcard = `${lowerPart}%`;
-    const containsWildcard = `%${lowerPart}%`;
-    const collapsedWildcard = `%${collapsedPart || lowerPart}%`;
+    const parsed = parseWildcardQuery(partNumber);
 
-    whereClauses.push(
-      Prisma.sql`
-        (
-          LOWER(pm.PartNumber) LIKE ${prefixWildcard}
-          OR LOWER(pm.PartNumber) LIKE ${containsWildcard}
-          OR REPLACE(REPLACE(LOWER(pm.PartNumber), '-', ''), ' ', '') LIKE ${collapsedWildcard}
-        )
-      `,
-    );
+    if (parsed) {
+      const likeClauses: Prisma.Sql[] = [];
+      const standardPattern = buildLikePattern(parsed.segments, parsed.hasLeadingWildcard, (segment) => segment);
+      const collapsedPattern = buildLikePattern(
+        parsed.segments,
+        parsed.hasLeadingWildcard,
+        (segment) => segment.replace(/[-\s]+/g, ''),
+      );
+
+      if (standardPattern) {
+        likeClauses.push(Prisma.sql`LOWER(pm.PartNumber) LIKE ${standardPattern} ESCAPE '\\'`);
+      }
+
+      if (collapsedPattern) {
+        likeClauses.push(
+          Prisma.sql`
+            REPLACE(REPLACE(LOWER(pm.PartNumber), '-', ''), ' ', '') LIKE ${collapsedPattern} ESCAPE '\\'
+          `,
+        );
+      }
+
+      if (likeClauses.length > 0) {
+        whereClauses.push(Prisma.sql`(${Prisma.join(likeClauses, ' OR ')})`);
+      }
+    }
   }
 
   if (description.length > 0) {
-    const normalizedDescription = description.replace(/\s+/g, ' ');
-    const lowerDescription = normalizedDescription.toLowerCase();
-    const collapsedDescription = lowerDescription.replace(/[^a-z0-9]/g, '');
-    const containsDescription = `%${lowerDescription}%`;
-    const collapsedDescriptionWildcard = `%${collapsedDescription || lowerDescription}%`;
+    const parsed = parseWildcardQuery(description);
 
-    whereClauses.push(
-      Prisma.sql`
-        (
-          LOWER(COALESCE(pm.DescText, '')) LIKE ${containsDescription}
-          OR REPLACE(REPLACE(LOWER(COALESCE(pm.DescText, '')), '-', ''), ' ', '') LIKE ${collapsedDescriptionWildcard}
-        )
-      `,
-    );
+    if (parsed) {
+      const likeClauses: Prisma.Sql[] = [];
+      const standardPattern = buildLikePattern(parsed.segments, parsed.hasLeadingWildcard, (segment) => segment);
+      const collapsedPattern = buildLikePattern(
+        parsed.segments,
+        parsed.hasLeadingWildcard,
+        (segment) => segment.replace(/[-\s]+/g, ''),
+      );
+
+      if (standardPattern) {
+        likeClauses.push(Prisma.sql`LOWER(COALESCE(pm.DescText, '')) LIKE ${standardPattern} ESCAPE '\\'`);
+      }
+
+      if (collapsedPattern) {
+        likeClauses.push(
+          Prisma.sql`
+            REPLACE(REPLACE(LOWER(COALESCE(pm.DescText, '')), '-', ''), ' ', '') LIKE ${collapsedPattern} ESCAPE '\\'
+          `,
+        );
+      }
+
+      if (likeClauses.length > 0) {
+        whereClauses.push(Prisma.sql`(${Prisma.join(likeClauses, ' OR ')})`);
+      }
+    }
   }
 
   if (inStockOnly) {
@@ -164,14 +243,14 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
       ? Prisma.sql`WHERE ${Prisma.join(whereClauses, ' AND ')}`
       : Prisma.sql``;
 
-  const limit = 100;
-
   logger.debug('Executing part search query', {
     partNumberLength: partNumber.length,
     descriptionLength: description.length,
     inStockOnly,
     limit,
   });
+
+  const limitClause = limit ? Prisma.sql`LIMIT ${limit}` : Prisma.empty;
 
   const results = await prisma.$queryRaw<Record<string, unknown>[]>(Prisma.sql`
     SELECT
@@ -205,7 +284,7 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
       ON sl.LocationCode = pm.LocationCode
     ${whereClause}
     ORDER BY pm.PartNumber ASC
-    LIMIT ${limit}
+    ${limitClause}
   `);
 
   return results.map(mapPartResult);
