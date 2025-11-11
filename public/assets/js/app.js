@@ -40,6 +40,7 @@ function initInventorySearch() {
   const searchInput = document.querySelector('#part-search');
   const descriptionInput = document.querySelector('#description-search');
   const inStockCheckbox = document.querySelector('#in-stock-filter');
+  const showTenCheckbox = document.querySelector('#show-ten-filter');
   const resultsBody = document.querySelector('[data-part-results]');
 
   if (!searchInput || !resultsBody) {
@@ -56,10 +57,13 @@ function initInventorySearch() {
   let activeController = null;
   let selectedRow = null;
   let selectedPartNumber = '';
+  let lastParts = [];
 
   const getPartQuery = () => searchInput.value.trim();
   const getDescriptionQuery = () => (descriptionInput ? descriptionInput.value.trim() : '');
   const isInStockOnly = () => Boolean(inStockCheckbox?.checked);
+  const shouldLimitResults = () => Boolean(showTenCheckbox?.checked);
+  const applyResultLimit = (parts) => (shouldLimitResults() ? parts.slice(0, 10) : parts);
 
   const clearSelection = () => {
     const hadSelection = Boolean(selectedRow || selectedPartNumber);
@@ -87,6 +91,7 @@ function initInventorySearch() {
     row.appendChild(cell);
     resultsBody.appendChild(row);
 
+    lastParts = [];
     clearSelection();
   };
 
@@ -219,7 +224,8 @@ function initInventorySearch() {
         return;
       }
 
-      renderRows(parts);
+      lastParts = parts;
+      renderRows(applyResultLimit(parts));
     } catch (error) {
       if (error.name === 'AbortError') {
         return;
@@ -247,6 +253,16 @@ function initInventorySearch() {
     inStockCheckbox.addEventListener('change', () => {
       window.clearTimeout(debounceTimer);
       void performSearch();
+    });
+  }
+
+  if (showTenCheckbox) {
+    showTenCheckbox.addEventListener('change', () => {
+      window.clearTimeout(debounceTimer);
+
+      if (lastParts.length > 0) {
+        renderRows(applyResultLimit(lastParts));
+      }
     });
   }
 
