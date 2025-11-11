@@ -26,6 +26,28 @@ function parseBooleanFlag(value: unknown): boolean {
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
 }
 
+function resolvePartResultLimit(value: unknown): number | undefined {
+  const rawLimit = resolveQueryParam(value).trim();
+
+  if (rawLimit.length === 0) {
+    return 100;
+  }
+
+  const normalized = rawLimit.toLowerCase();
+
+  if (['all', 'false', '0', 'off', 'no'].includes(normalized)) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return 100;
+  }
+
+  return parsed;
+}
+
 export default async function handler(req: any, res: any) {
   const method = req.method ?? 'GET';
 
@@ -39,6 +61,7 @@ export default async function handler(req: any, res: any) {
   const partNumber = resolveQueryParam(req.query?.partNumber).trim();
   const description = resolveQueryParam(req.query?.description).trim();
   const inStockOnly = parseBooleanFlag(req.query?.inStock);
+  const limit = resolvePartResultLimit(req.query?.limit);
 
   if (partNumber.length === 0 && description.length === 0 && !inStockOnly) {
     logger.warn('Rejected part search without filters', { source: 'vercel-function' });
@@ -52,6 +75,7 @@ export default async function handler(req: any, res: any) {
     partNumberLength: partNumber.length,
     descriptionLength: description.length,
     inStockOnly,
+    limit,
     source: 'vercel-function',
   });
 
@@ -60,6 +84,7 @@ export default async function handler(req: any, res: any) {
       partNumber,
       description,
       inStockOnly,
+      limit,
     });
     res.status(200).json({ data });
 
@@ -68,6 +93,7 @@ export default async function handler(req: any, res: any) {
       partNumberLength: partNumber.length,
       descriptionLength: description.length,
       inStockOnly,
+      limit,
       source: 'vercel-function',
     });
   } catch (error) {
@@ -75,6 +101,7 @@ export default async function handler(req: any, res: any) {
       partNumberLength: partNumber.length,
       descriptionLength: description.length,
       inStockOnly,
+      limit,
       error: serializeError(error),
       source: 'vercel-function',
     });
