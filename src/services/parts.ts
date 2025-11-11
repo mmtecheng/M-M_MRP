@@ -17,6 +17,7 @@ type PartSearchOptions = {
   partNumber: string;
   description: string;
   inStockOnly: boolean;
+  limit?: number;
 };
 
 function normalizeString(value: unknown) {
@@ -61,6 +62,69 @@ function asNumber(value: unknown): number {
   }
 
   return 0;
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/([%_])/g, '\\$1');
+}
+
+type LikePatterns = {
+  standard: string | null;
+  collapsed: string | null;
+};
+
+function createLikePatterns(value: string): LikePatterns | null {
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const normalized = trimmed.replace(/\s+/g, ' ');
+  const hasLeadingWildcard = normalized.startsWith('*');
+
+  const rawSegments = normalized
+    .split('*')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+
+  const buildPattern = (segments: string[]): string | null => {
+    const cleaned = segments.map((segment) => segment.trim()).filter((segment) => segment.length > 0);
+
+    if (cleaned.length === 0) {
+      return null;
+    }
+
+    let pattern = hasLeadingWildcard ? '%' : '';
+    pattern += cleaned.map((segment) => escapeLikePattern(segment)).join('%');
+
+    if (!pattern.endsWith('%')) {
+      pattern += '%';
+    }
+
+    return pattern;
+  };
+
+  if (rawSegments.length === 0) {
+    if (!normalized.includes('*')) {
+      return null;
+    }
+
+    return { standard: '%', collapsed: '%' };
+  }
+
+  const standardPattern = buildPattern(rawSegments);
+
+  const collapsedSegments = rawSegments
+    .map((segment) => segment.replace(/[-\s]+/g, ''))
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+
+  const collapsedPattern = buildPattern(collapsedSegments);
+
+  return {
+    standard: standardPattern,
+    collapsed: collapsedSegments.length > 0 ? collapsedPattern : null,
+  };
 }
 
 function mapPartResult(record: Record<string, unknown>): PartSearchResult {
@@ -114,43 +178,48 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
   const partNumber = typeof options.partNumber === 'string' ? options.partNumber.trim() : '';
   const description = typeof options.description === 'string' ? options.description.trim() : '';
   const inStockOnly = Boolean(options.inStockOnly);
+  const limit = typeof options.limit === 'number' && Number.isFinite(options.limit) ? options.limit : undefined;
 
   const whereClauses: Prisma.Sql[] = [];
 
   if (partNumber.length > 0) {
-    const normalizedPart = partNumber.replace(/\s+/g, ' ');
-    const lowerPart = normalizedPart.toLowerCase();
-    const collapsedPart = lowerPart.replace(/[^a-z0-9]/g, '');
-    const prefixWildcard = `${lowerPart}%`;
-    const containsWildcard = `%${lowerPart}%`;
-    const collapsedWildcard = `%${collapsedPart || lowerPart}%`;
+    const patterns = createLikePatterns(partNumber);
 
-    whereClauses.push(
-      Prisma.sql`
-        (
-          LOWER(pm.PartNumber) LIKE ${prefixWildcard}
-          OR LOWER(pm.PartNumber) LIKE ${containsWildcard}
-          OR REPLACE(REPLACE(LOWER(pm.PartNumber), '-', ''), ' ', '') LIKE ${collapsedWildcard}
-        )
-      `,
-    );
+    if (patterns?.standard) {
+      const likeClauses: Prisma.Sql[] = [
+        Prisma.sql`LOWER(pm.PartNumber) LIKE ${patterns.standard} ESCAPE '\\'`,
+      ];
+
+      if (patterns.collapsed) {
+        likeClauses.push(
+          Prisma.sql`
+            REPLACE(REPLACE(LOWER(pm.PartNumber), '-', ''), ' ', '') LIKE ${patterns.collapsed} ESCAPE '\\'
+          `,
+        );
+      }
+
+      whereClauses.push(Prisma.sql`(${Prisma.join(likeClauses, ' OR ')})`);
+    }
   }
 
   if (description.length > 0) {
-    const normalizedDescription = description.replace(/\s+/g, ' ');
-    const lowerDescription = normalizedDescription.toLowerCase();
-    const collapsedDescription = lowerDescription.replace(/[^a-z0-9]/g, '');
-    const containsDescription = `%${lowerDescription}%`;
-    const collapsedDescriptionWildcard = `%${collapsedDescription || lowerDescription}%`;
+    const patterns = createLikePatterns(description);
 
-    whereClauses.push(
-      Prisma.sql`
-        (
-          LOWER(COALESCE(pm.DescText, '')) LIKE ${containsDescription}
-          OR REPLACE(REPLACE(LOWER(COALESCE(pm.DescText, '')), '-', ''), ' ', '') LIKE ${collapsedDescriptionWildcard}
-        )
-      `,
-    );
+    if (patterns?.standard) {
+      const likeClauses: Prisma.Sql[] = [
+        Prisma.sql`LOWER(COALESCE(pm.DescText, '')) LIKE ${patterns.standard} ESCAPE '\\'`,
+      ];
+
+      if (patterns.collapsed) {
+        likeClauses.push(
+          Prisma.sql`
+            REPLACE(REPLACE(LOWER(COALESCE(pm.DescText, '')), '-', ''), ' ', '') LIKE ${patterns.collapsed} ESCAPE '\\'
+          `,
+        );
+      }
+
+      whereClauses.push(Prisma.sql`(${Prisma.join(likeClauses, ' OR ')})`);
+    }
   }
 
   if (inStockOnly) {
@@ -164,14 +233,14 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
       ? Prisma.sql`WHERE ${Prisma.join(whereClauses, ' AND ')}`
       : Prisma.sql``;
 
-  const limit = 100;
-
   logger.debug('Executing part search query', {
     partNumberLength: partNumber.length,
     descriptionLength: description.length,
     inStockOnly,
     limit,
   });
+
+  const limitClause = typeof limit === 'number' && limit > 0 ? Prisma.sql`LIMIT ${limit}` : Prisma.empty;
 
   const results = await prisma.$queryRaw<Record<string, unknown>[]>(Prisma.sql`
     SELECT
@@ -205,7 +274,7 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
       ON sl.LocationCode = pm.LocationCode
     ${whereClause}
     ORDER BY pm.PartNumber ASC
-    LIMIT ${limit}
+    ${limitClause}
   `);
 
   return results.map(mapPartResult);

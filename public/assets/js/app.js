@@ -40,6 +40,7 @@ function initInventorySearch() {
   const searchInput = document.querySelector('#part-search');
   const descriptionInput = document.querySelector('#description-search');
   const inStockCheckbox = document.querySelector('#in-stock-filter');
+  const showTenCheckbox = document.querySelector('#show-ten-filter');
   const resultsBody = document.querySelector('[data-part-results]');
 
   if (!searchInput || !resultsBody) {
@@ -60,6 +61,7 @@ function initInventorySearch() {
   const getPartQuery = () => searchInput.value.trim();
   const getDescriptionQuery = () => (descriptionInput ? descriptionInput.value.trim() : '');
   const isInStockOnly = () => Boolean(inStockCheckbox?.checked);
+  const showTopTenOnly = () => Boolean(showTenCheckbox?.checked);
 
   const clearSelection = () => {
     const hadSelection = Boolean(selectedRow || selectedPartNumber);
@@ -169,8 +171,9 @@ function initInventorySearch() {
     const partQuery = getPartQuery();
     const descriptionQuery = getDescriptionQuery();
     const inStockOnly = isInStockOnly();
+    const limit = showTopTenOnly() ? 10 : undefined;
 
-    if (!partQuery && !descriptionQuery && !inStockOnly) {
+    if (!partQuery && !descriptionQuery && !inStockOnly && limit === undefined) {
       showMessage('Enter a part number, description, or enable In Stock to search.');
       return;
     }
@@ -197,6 +200,10 @@ function initInventorySearch() {
 
       if (inStockOnly) {
         params.set('inStock', 'true');
+      }
+
+      if (typeof limit === 'number') {
+        params.set('limit', String(limit));
       }
 
       if (activeController) {
@@ -245,6 +252,13 @@ function initInventorySearch() {
 
   if (inStockCheckbox) {
     inStockCheckbox.addEventListener('change', () => {
+      window.clearTimeout(debounceTimer);
+      void performSearch();
+    });
+  }
+
+  if (showTenCheckbox) {
+    showTenCheckbox.addEventListener('change', () => {
       window.clearTimeout(debounceTimer);
       void performSearch();
     });
