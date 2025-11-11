@@ -65,12 +65,26 @@
             <input id="in-stock-filter" type="checkbox" />
             <label for="in-stock-filter">In Stock Only</label>
           </div>
-          <div class="field field--checkbox">
-            <input id="show-ten-filter" type="checkbox" checked />
-            <label for="show-ten-filter">Show 10</label>
-          </div>
         </div>
         <div class="table-wrapper">
+          <div class="table-controls" data-part-controls>
+            <div class="table-controls__count" data-part-total hidden></div>
+            <div class="table-controls__pager" data-part-pagination>
+              <button type="button" class="pager-button" data-page-action="first" aria-label="Go to first set">
+                <span aria-hidden="true">&laquo;</span>
+              </button>
+              <button type="button" class="pager-button" data-page-action="previous" aria-label="Go to previous set">
+                <span aria-hidden="true">&lsaquo;</span>
+              </button>
+              <span class="table-controls__status" data-part-page-status hidden>1 of 1</span>
+              <button type="button" class="pager-button" data-page-action="next" aria-label="Go to next set">
+                <span aria-hidden="true">&rsaquo;</span>
+              </button>
+              <button type="button" class="pager-button" data-page-action="last" aria-label="Go to last set">
+                <span aria-hidden="true">&raquo;</span>
+              </button>
+            </div>
+          </div>
           <table class="data-table">
             <thead>
               <tr>
@@ -89,6 +103,23 @@
               </tr>
             </tbody>
           </table>
+          <div class="table-controls" data-part-controls>
+            <div class="table-controls__pager" data-part-pagination>
+              <button type="button" class="pager-button" data-page-action="first" aria-label="Go to first set">
+                <span aria-hidden="true">&laquo;</span>
+              </button>
+              <button type="button" class="pager-button" data-page-action="previous" aria-label="Go to previous set">
+                <span aria-hidden="true">&lsaquo;</span>
+              </button>
+              <span class="table-controls__status" data-part-page-status hidden>1 of 1</span>
+              <button type="button" class="pager-button" data-page-action="next" aria-label="Go to next set">
+                <span aria-hidden="true">&rsaquo;</span>
+              </button>
+              <button type="button" class="pager-button" data-page-action="last" aria-label="Go to last set">
+                <span aria-hidden="true">&raquo;</span>
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
