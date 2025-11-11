@@ -40,13 +40,20 @@ function initInventorySearch() {
   const searchInput = document.querySelector('#part-search');
   const descriptionInput = document.querySelector('#description-search');
   const inStockCheckbox = document.querySelector('#in-stock-filter');
-  const showTenCheckbox = document.querySelector('#show-ten-filter');
   const resultsBody = document.querySelector('[data-part-results]');
+  const controlContainers = document.querySelectorAll('[data-part-controls]');
+  const totalTargets = document.querySelectorAll('[data-part-total]');
+  const pageStatusTargets = document.querySelectorAll('[data-part-page-status]');
+  const firstButtons = document.querySelectorAll('[data-page-action="first"]');
+  const previousButtons = document.querySelectorAll('[data-page-action="previous"]');
+  const nextButtons = document.querySelectorAll('[data-page-action="next"]');
+  const lastButtons = document.querySelectorAll('[data-page-action="last"]');
 
   if (!searchInput || !resultsBody) {
     return;
   }
 
+  const PAGE_SIZE = 25;
   const COLUMN_COUNT = 7;
   const quantityFormatter = new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 0,
@@ -58,12 +65,118 @@ function initInventorySearch() {
   let selectedRow = null;
   let selectedPartNumber = '';
   let lastParts = [];
+  let currentPageIndex = 0;
 
   const getPartQuery = () => searchInput.value.trim();
   const getDescriptionQuery = () => (descriptionInput ? descriptionInput.value.trim() : '');
   const isInStockOnly = () => Boolean(inStockCheckbox?.checked);
-  const shouldLimitResults = () => Boolean(showTenCheckbox?.checked);
-  const applyResultLimit = (parts) => (shouldLimitResults() ? parts.slice(0, 10) : parts);
+  const getTotalPages = () => (lastParts.length === 0 ? 0 : Math.ceil(lastParts.length / PAGE_SIZE));
+
+  const resetControls = () => {
+    currentPageIndex = 0;
+
+    controlContainers.forEach((container) => {
+      container.hidden = true;
+    });
+
+    totalTargets.forEach((target) => {
+      target.hidden = true;
+      target.textContent = '';
+    });
+
+    pageStatusTargets.forEach((target) => {
+      target.hidden = true;
+      target.textContent = '';
+    });
+
+    const allButtons = [...firstButtons, ...previousButtons, ...nextButtons, ...lastButtons];
+    allButtons.forEach((button) => {
+      button.disabled = true;
+    });
+  };
+
+  const updateControls = () => {
+    const totalParts = lastParts.length;
+
+    if (totalParts === 0) {
+      resetControls();
+      return;
+    }
+
+    const totalPages = Math.max(1, getTotalPages());
+    currentPageIndex = Math.min(Math.max(currentPageIndex, 0), totalPages - 1);
+    const startIndex = currentPageIndex * PAGE_SIZE + 1;
+    const endIndex = Math.min((currentPageIndex + 1) * PAGE_SIZE, totalParts);
+    const isFirstPage = currentPageIndex === 0;
+    const isLastPage = currentPageIndex === totalPages - 1;
+
+    controlContainers.forEach((container) => {
+      container.hidden = false;
+    });
+
+    totalTargets.forEach((target) => {
+      target.hidden = false;
+      target.textContent = `Showing ${startIndex}-${endIndex} of ${totalParts} parts`;
+    });
+
+    pageStatusTargets.forEach((target) => {
+      target.hidden = false;
+      target.textContent = `${currentPageIndex + 1} of ${totalPages}`;
+    });
+
+    const enableButtonState = (buttons, disabled) => {
+      buttons.forEach((button) => {
+        button.disabled = disabled;
+      });
+    };
+
+    enableButtonState(firstButtons, isFirstPage);
+    enableButtonState(previousButtons, isFirstPage);
+    enableButtonState(nextButtons, isLastPage);
+    enableButtonState(lastButtons, isLastPage);
+  };
+
+  const showPage = (pageIndex) => {
+    const totalPages = getTotalPages();
+
+    if (totalPages === 0) {
+      resetControls();
+      return;
+    }
+
+    currentPageIndex = Math.min(Math.max(pageIndex, 0), totalPages - 1);
+    const start = currentPageIndex * PAGE_SIZE;
+    const pageParts = lastParts.slice(start, start + PAGE_SIZE);
+    renderRows(pageParts);
+    updateControls();
+  };
+
+  firstButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      showPage(0);
+    });
+  });
+
+  previousButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      showPage(currentPageIndex - 1);
+    });
+  });
+
+  nextButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      showPage(currentPageIndex + 1);
+    });
+  });
+
+  lastButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const totalPages = getTotalPages();
+      if (totalPages > 0) {
+        showPage(totalPages - 1);
+      }
+    });
+  });
 
   const clearSelection = () => {
     const hadSelection = Boolean(selectedRow || selectedPartNumber);
@@ -82,6 +195,7 @@ function initInventorySearch() {
   };
 
   const showMessage = (message) => {
+    resetControls();
     resultsBody.innerHTML = '';
     const row = document.createElement('tr');
     const cell = document.createElement('td');
@@ -225,7 +339,7 @@ function initInventorySearch() {
       }
 
       lastParts = parts;
-      renderRows(applyResultLimit(parts));
+      showPage(0);
     } catch (error) {
       if (error.name === 'AbortError') {
         return;
@@ -253,16 +367,6 @@ function initInventorySearch() {
     inStockCheckbox.addEventListener('change', () => {
       window.clearTimeout(debounceTimer);
       void performSearch();
-    });
-  }
-
-  if (showTenCheckbox) {
-    showTenCheckbox.addEventListener('change', () => {
-      window.clearTimeout(debounceTimer);
-
-      if (lastParts.length > 0) {
-        renderRows(applyResultLimit(lastParts));
-      }
     });
   }
 
