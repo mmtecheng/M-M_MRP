@@ -161,10 +161,30 @@ function parseBooleanFlag(value: string | null): boolean {
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
 }
 
+function shouldLimitPartResults(rawLimit: string | null): boolean {
+  if (!rawLimit) {
+    return true;
+  }
+
+  const normalized = rawLimit.trim().toLowerCase();
+
+  if (normalized === 'all' || normalized === 'false' || normalized === '0' || normalized === 'off' || normalized === 'no') {
+    return false;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (!Number.isNaN(parsed)) {
+    return parsed > 0;
+  }
+
+  return true;
+}
+
 type PartSearchFilters = {
   partNumber: string;
   description: string;
   inStockOnly: boolean;
+  limitResults: boolean;
 };
 
 async function handlePartSearch(
@@ -175,6 +195,7 @@ async function handlePartSearch(
   const partNumber = filters.partNumber.trim();
   const description = filters.description.trim();
   const inStockOnly = filters.inStockOnly;
+  const limitResults = filters.limitResults;
 
   if (partNumber.length === 0 && description.length === 0 && !inStockOnly) {
     res.statusCode = 400;
@@ -189,6 +210,7 @@ async function handlePartSearch(
     partNumberLength: partNumber.length,
     descriptionLength: description.length,
     inStockOnly,
+    limitResults,
   });
 
   try {
@@ -196,6 +218,7 @@ async function handlePartSearch(
       partNumber,
       description,
       inStockOnly,
+      limitResults,
     });
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -206,12 +229,14 @@ async function handlePartSearch(
       partNumberLength: partNumber.length,
       descriptionLength: description.length,
       inStockOnly,
+      limitResults,
     });
   } catch (error) {
     logger.error('Part search failed', {
       partNumberLength: partNumber.length,
       descriptionLength: description.length,
       inStockOnly,
+      limitResults,
       error: serializeError(error),
     });
     res.statusCode = 500;
@@ -355,6 +380,7 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
       partNumber: url.searchParams.get('partNumber') ?? '',
       description: url.searchParams.get('description') ?? '',
       inStockOnly: parseBooleanFlag(url.searchParams.get('inStock')),
+      limitResults: shouldLimitPartResults(url.searchParams.get('limit')),
     });
     return;
   }
