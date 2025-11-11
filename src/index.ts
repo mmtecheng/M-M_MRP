@@ -165,7 +165,6 @@ type PartSearchFilters = {
   partNumber: string;
   description: string;
   inStockOnly: boolean;
-  limit?: number;
 };
 
 async function handlePartSearch(
@@ -176,9 +175,8 @@ async function handlePartSearch(
   const partNumber = filters.partNumber.trim();
   const description = filters.description.trim();
   const inStockOnly = filters.inStockOnly;
-  const limit = filters.limit;
 
-  if (partNumber.length === 0 && description.length === 0 && !inStockOnly && limit === undefined) {
+  if (partNumber.length === 0 && description.length === 0 && !inStockOnly) {
     res.statusCode = 400;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(
@@ -191,7 +189,6 @@ async function handlePartSearch(
     partNumberLength: partNumber.length,
     descriptionLength: description.length,
     inStockOnly,
-    limit,
   });
 
   try {
@@ -199,7 +196,6 @@ async function handlePartSearch(
       partNumber,
       description,
       inStockOnly,
-      limit,
     });
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -210,14 +206,12 @@ async function handlePartSearch(
       partNumberLength: partNumber.length,
       descriptionLength: description.length,
       inStockOnly,
-      limit,
     });
   } catch (error) {
     logger.error('Part search failed', {
       partNumberLength: partNumber.length,
       descriptionLength: description.length,
       inStockOnly,
-      limit,
       error: serializeError(error),
     });
     res.statusCode = 500;
@@ -361,7 +355,6 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
       partNumber: url.searchParams.get('partNumber') ?? '',
       description: url.searchParams.get('description') ?? '',
       inStockOnly: parseBooleanFlag(url.searchParams.get('inStock')),
-      limit: parseLimit(url.searchParams.get('limit')),
     });
     return;
   }
