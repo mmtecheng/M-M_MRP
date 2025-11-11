@@ -40,6 +40,7 @@ function initInventorySearch() {
   const searchInput = document.querySelector('#part-search');
   const descriptionInput = document.querySelector('#description-search');
   const inStockCheckbox = document.querySelector('#in-stock-filter');
+  const limitCheckbox = document.querySelector('#limit-results');
   const resultsBody = document.querySelector('[data-part-results]');
   const controlContainers = document.querySelectorAll('[data-part-controls]');
   const totalTargets = document.querySelectorAll('[data-part-total]');
@@ -70,6 +71,7 @@ function initInventorySearch() {
   const getPartQuery = () => searchInput.value.trim();
   const getDescriptionQuery = () => (descriptionInput ? descriptionInput.value.trim() : '');
   const isInStockOnly = () => Boolean(inStockCheckbox?.checked);
+  const shouldLimitResults = () => (limitCheckbox ? limitCheckbox.checked : true);
   const getTotalPages = () => (lastParts.length === 0 ? 0 : Math.ceil(lastParts.length / PAGE_SIZE));
 
   const resetControls = () => {
@@ -318,6 +320,10 @@ function initInventorySearch() {
         params.set('inStock', 'true');
       }
 
+      if (!shouldLimitResults()) {
+        params.set('limit', '5000');
+      }
+
       if (activeController) {
         fetchOptions.signal = activeController.signal;
       }
@@ -365,6 +371,13 @@ function initInventorySearch() {
 
   if (inStockCheckbox) {
     inStockCheckbox.addEventListener('change', () => {
+      window.clearTimeout(debounceTimer);
+      void performSearch();
+    });
+  }
+
+  if (limitCheckbox) {
+    limitCheckbox.addEventListener('change', () => {
       window.clearTimeout(debounceTimer);
       void performSearch();
     });
