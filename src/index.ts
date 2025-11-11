@@ -161,30 +161,37 @@ function parseBooleanFlag(value: string | null): boolean {
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
 }
 
-function shouldLimitPartResults(rawLimit: string | null): boolean {
+function resolvePartResultLimit(rawLimit: string | null): number | undefined {
   if (!rawLimit) {
-    return true;
+    return 100;
   }
 
   const normalized = rawLimit.trim().toLowerCase();
 
-  if (normalized === 'all' || normalized === 'false' || normalized === '0' || normalized === 'off' || normalized === 'no') {
-    return false;
+  if (
+    normalized === 'all' ||
+    normalized === 'false' ||
+    normalized === '0' ||
+    normalized === 'off' ||
+    normalized === 'no'
+  ) {
+    return undefined;
   }
 
   const parsed = Number.parseInt(normalized, 10);
-  if (!Number.isNaN(parsed)) {
-    return parsed > 0;
+
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return 100;
   }
 
-  return true;
+  return parsed;
 }
 
 type PartSearchFilters = {
   partNumber: string;
   description: string;
   inStockOnly: boolean;
-  limitResults: boolean;
+  limit: number | undefined;
 };
 
 async function handlePartSearch(
@@ -195,7 +202,7 @@ async function handlePartSearch(
   const partNumber = filters.partNumber.trim();
   const description = filters.description.trim();
   const inStockOnly = filters.inStockOnly;
-  const limitResults = filters.limitResults;
+  const limit = filters.limit;
 
   if (partNumber.length === 0 && description.length === 0 && !inStockOnly) {
     res.statusCode = 400;
@@ -210,7 +217,7 @@ async function handlePartSearch(
     partNumberLength: partNumber.length,
     descriptionLength: description.length,
     inStockOnly,
-    limitResults,
+    limit,
   });
 
   try {
@@ -218,7 +225,7 @@ async function handlePartSearch(
       partNumber,
       description,
       inStockOnly,
-      limitResults,
+      limit,
     });
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -229,14 +236,14 @@ async function handlePartSearch(
       partNumberLength: partNumber.length,
       descriptionLength: description.length,
       inStockOnly,
-      limitResults,
+      limit,
     });
   } catch (error) {
     logger.error('Part search failed', {
       partNumberLength: partNumber.length,
       descriptionLength: description.length,
       inStockOnly,
-      limitResults,
+      limit,
       error: serializeError(error),
     });
     res.statusCode = 500;
@@ -380,7 +387,7 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
       partNumber: url.searchParams.get('partNumber') ?? '',
       description: url.searchParams.get('description') ?? '',
       inStockOnly: parseBooleanFlag(url.searchParams.get('inStock')),
-      limitResults: shouldLimitPartResults(url.searchParams.get('limit')),
+      limit: resolvePartResultLimit(url.searchParams.get('limit')),
     });
     return;
   }

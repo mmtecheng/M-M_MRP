@@ -17,7 +17,7 @@ type PartSearchOptions = {
   partNumber: string;
   description: string;
   inStockOnly: boolean;
-  limitResults?: boolean;
+  limit?: number;
 };
 
 function normalizeString(value: unknown) {
@@ -115,7 +115,8 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
   const partNumber = typeof options.partNumber === 'string' ? options.partNumber.trim() : '';
   const description = typeof options.description === 'string' ? options.description.trim() : '';
   const inStockOnly = Boolean(options.inStockOnly);
-  const limitResults = options.limitResults !== false;
+  const requestedLimit =
+    typeof options.limit === 'number' && Number.isFinite(options.limit) ? Math.floor(options.limit) : undefined;
 
   const whereClauses: Prisma.Sql[] = [];
 
@@ -166,7 +167,7 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
       ? Prisma.sql`WHERE ${Prisma.join(whereClauses, ' AND ')}`
       : Prisma.sql``;
 
-  const limit = limitResults ? 100 : undefined;
+  const limit = typeof requestedLimit === 'number' && requestedLimit > 0 ? requestedLimit : undefined;
 
   logger.debug('Executing part search query', {
     partNumberLength: partNumber.length,

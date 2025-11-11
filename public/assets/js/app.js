@@ -321,7 +321,7 @@ function initInventorySearch() {
       }
 
       if (!shouldLimitResults()) {
-        params.set('limit', 'all');
+        params.set('limit', '5000');
       }
 
       if (activeController) {
