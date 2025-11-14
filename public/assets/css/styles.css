@@ -166,12 +166,17 @@ a:focus {
 }
 
 .content {
+  --content-gap: 2rem;
   overflow-y: auto;
   padding: 2rem;
   background: linear-gradient(180deg, rgba(224, 245, 245, 0.6), transparent 280px);
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: var(--content-gap);
+}
+
+.content > .page-header:first-child {
+  margin-bottom: calc(-1 * var(--content-gap));
 }
 
 .content > * + * {
