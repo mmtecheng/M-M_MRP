@@ -27,7 +27,7 @@ const MIME_TYPES: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
-const PRISMA_EXECUTABLE = 'npx';
+const PRISMA_EXECUTABLE = path.resolve(process.cwd(), 'node_modules', '.bin', 'prisma');
 const PRISMA_COMMAND = 'prisma';
 const PRISMA_DB_PULL_ARGS = ['db', 'pull'];
 const PRISMA_GENERATE_ARGS = ['generate'];
