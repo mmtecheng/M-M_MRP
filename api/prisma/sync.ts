@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { summarizeConnectionString } from '../../src/lib/connectionString.js';
 import { logger, serializeError } from '../../src/lib/logger.js';
 
-const EXECUTABLE = 'npx';
+const EXECUTABLE = join(process.cwd(), 'node_modules', '.bin', 'prisma');
 const PRISMA_COMMAND = 'prisma';
 const PRISMA_DB_PULL_ARGS = ['db', 'pull'];
 const PRISMA_SCHEMA_PATH = fileURLToPath(new URL('../../prisma/schema.prisma', import.meta.url));
