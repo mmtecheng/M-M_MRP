@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/prisma/sync.ts": {
-      "includeFiles": "prisma/schema.prisma"
+      "includeFiles": "{prisma/schema.prisma,node_modules/prisma/build/**,node_modules/.prisma/client/**}"
     }
   }
 }
