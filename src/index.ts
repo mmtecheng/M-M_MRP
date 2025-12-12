@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, stat } from 'node:fs/promises';
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
@@ -31,6 +31,9 @@ const PRISMA_EXECUTABLE = 'npx';
 const PRISMA_COMMAND = 'prisma';
 const PRISMA_DB_PULL_ARGS = ['db', 'pull'];
 const PRISMA_GENERATE_ARGS = ['generate'];
+const PRISMA_SCHEMA_PATH = path.resolve(process.cwd(), 'prisma', 'schema.prisma');
+const TEMP_SCHEMA_DIR = path.join('/tmp', 'prisma-sync');
+const TEMP_SCHEMA_PATH = path.join(TEMP_SCHEMA_DIR, 'schema.prisma');
 
 type PrismaStepResult = {
   step: string;
@@ -40,12 +43,37 @@ type PrismaStepResult = {
 
 let prismaSyncInProgress = false;
 
-async function runPrismaCommand(args: string[], step: string): Promise<PrismaStepResult> {
+async function runPrismaCommand(
+  args: string[],
+  step: string,
+  schemaPath: string,
+): Promise<PrismaStepResult> {
   logger.info('Starting Prisma command', { step, args });
 
+  const homeDir = process.env.HOME ?? '/tmp';
+  const npmCacheDir = process.env.NPM_CONFIG_CACHE ?? process.env.npm_config_cache ?? `${homeDir}/.npm`;
+  const npmTmpDir = process.env.NPM_CONFIG_TMP ?? process.env.npm_config_tmp ?? `${homeDir}/tmp`;
+
+  await Promise.all([
+    mkdir(homeDir, { recursive: true }).catch(() => undefined),
+    mkdir(npmCacheDir, { recursive: true }).catch(() => undefined),
+    mkdir(npmTmpDir, { recursive: true }).catch(() => undefined),
+  ]);
+
+  const env = {
+    ...process.env,
+    HOME: homeDir,
+    NPM_CONFIG_CACHE: npmCacheDir,
+    npm_config_cache: npmCacheDir,
+    NPM_CONFIG_TMP: npmTmpDir,
+    npm_config_tmp: npmTmpDir,
+  };
+
   return await new Promise<PrismaStepResult>((resolve, reject) => {
-    const child = spawn(PRISMA_EXECUTABLE, [PRISMA_COMMAND, ...args], {
-      env: process.env,
+    const prismaArgs = [PRISMA_COMMAND, ...args, '--schema', schemaPath];
+
+    const child = spawn(PRISMA_EXECUTABLE, prismaArgs, {
+      env,
       shell: process.platform === 'win32',
     });
 
@@ -84,11 +112,17 @@ async function runPrismaCommand(args: string[], step: string): Promise<PrismaSte
   });
 }
 
-async function performPrismaSync() {
+async function prepareTemporarySchema(): Promise<string> {
+  await mkdir(TEMP_SCHEMA_DIR, { recursive: true });
+  await copyFile(PRISMA_SCHEMA_PATH, TEMP_SCHEMA_PATH);
+  return TEMP_SCHEMA_PATH;
+}
+
+async function performPrismaSync(schemaPath: string) {
   const results: PrismaStepResult[] = [];
 
-  results.push(await runPrismaCommand(PRISMA_DB_PULL_ARGS, 'schema introspection'));
-  results.push(await runPrismaCommand(PRISMA_GENERATE_ARGS, 'client generation'));
+  results.push(await runPrismaCommand(PRISMA_DB_PULL_ARGS, 'schema introspection', schemaPath));
+  results.push(await runPrismaCommand(PRISMA_GENERATE_ARGS, 'client generation', schemaPath));
 
   return results;
 }
@@ -116,7 +150,11 @@ async function handlePrismaSyncRequest(res: ServerResponse) {
   prismaSyncInProgress = true;
 
   try {
-    const steps = await performPrismaSync();
+    const schemaPath = await prepareTemporarySchema();
+    logger.info('Prisma schema sync will use temporary schema copy', { schemaPath });
+
+    const steps = await performPrismaSync(schemaPath);
+    const updatedSchema = await readFile(schemaPath, 'utf8').catch(() => null);
     const responseSteps = steps.map(({ step, stdout, stderr }) => ({
       step,
       stdout: stdout.trim(),
@@ -128,6 +166,8 @@ async function handlePrismaSyncRequest(res: ServerResponse) {
       JSON.stringify({
         message: 'Prisma schema synchronized successfully.',
         steps: responseSteps,
+        schemaPath,
+        schema: updatedSchema ?? undefined,
       }),
     );
 
