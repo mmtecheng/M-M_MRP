@@ -8,7 +8,6 @@ import { summarizeConnectionString } from '../../src/lib/connectionString.js';
 import { logger, serializeError } from '../../src/lib/logger.js';
 
 const EXECUTABLE = join(process.cwd(), 'node_modules', '.bin', 'prisma');
-const PRISMA_COMMAND = 'prisma';
 const PRISMA_DB_PULL_ARGS = ['db', 'pull'];
 const PRISMA_SCHEMA_PATH = fileURLToPath(new URL('../../prisma/schema.prisma', import.meta.url));
 const TEMP_SCHEMA_DIR = join('/tmp', 'prisma-sync');
@@ -45,7 +44,7 @@ async function runPrismaCommand(args: string[], step: string, schemaPath: string
   };
 
   return await new Promise<PrismaStepResult>((resolve, reject) => {
-    const prismaArgs = [PRISMA_COMMAND, ...args, '--schema', schemaPath];
+    const prismaArgs = [...args, '--schema', schemaPath];
 
     const child = spawn(EXECUTABLE, prismaArgs, {
       env,
