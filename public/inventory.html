@@ -88,6 +88,14 @@
                 <span aria-hidden="true">&raquo;</span>
               </button>
             </div>
+            <div class="table-controls__actions">
+              <button type="button" class="button button--primary button--icon" data-part-add aria-label="Add new part">
+                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                  <path d="M11 5a1 1 0 0 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6Z" />
+                </svg>
+                <span class="sr-only">Add Part</span>
+              </button>
+            </div>
           </div>
           <table class="data-table">
             <thead>
@@ -176,6 +184,61 @@
           </table>
         </div>
       </section>
+
+      <div class="modal" data-part-modal hidden>
+        <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="part-modal-title">
+          <div class="modal__header">
+            <h4 class="modal__title" id="part-modal-title" data-part-modal-title>Part Details</h4>
+            <p class="modal__subtitle" data-part-modal-subtitle></p>
+          </div>
+          <div class="modal__body">
+            <div class="modal__notice" data-part-type-warning hidden>
+              A Part Type is required before editing this part. Please choose a Part Type to continue.
+            </div>
+            <form class="modal__form" data-part-form novalidate>
+              <div class="modal__form-grid">
+                <label class="modal__label" for="part-number-input">Part Number</label>
+                <input id="part-number-input" name="partNumber" type="text" data-part-number required />
+
+                <label class="modal__label" for="part-description-input">Description</label>
+                <input id="part-description-input" name="description" type="text" data-part-description />
+
+                <label class="modal__label" for="part-revision-input">Revision</label>
+                <input id="part-revision-input" name="revision" type="text" data-part-revision />
+
+                <label class="modal__label" for="part-stockuom-input">Stock UOM</label>
+                <input id="part-stockuom-input" name="stockUom" type="text" data-part-stockuom />
+
+                <label class="modal__label" for="part-status-input">Status</label>
+                <input id="part-status-input" name="status" type="text" data-part-status />
+
+                <label class="modal__label" for="part-type-select">Part Type</label>
+                <select id="part-type-select" name="partType" data-part-type required></select>
+              </div>
+
+              <div class="modal__section" data-part-attribute-section hidden>
+                <div class="modal__section-heading">
+                  <h5>Attributes</h5>
+                  <p class="modal__section-subtitle">Fields required by the selected Part Type.</p>
+                </div>
+                <div class="modal__form-grid" data-part-attributes></div>
+              </div>
+
+              <p class="modal__feedback" data-part-feedback></p>
+            </form>
+          </div>
+          <div class="modal__footer">
+            <div class="modal__actions" data-part-view-actions>
+              <button type="button" class="button button--primary" data-part-edit>Edit</button>
+              <button type="button" class="button" data-part-close>Close</button>
+            </div>
+            <div class="modal__actions" data-part-edit-actions hidden>
+              <button type="button" class="button button--ghost" data-part-cancel>Cancel</button>
+              <button type="button" class="button button--primary" data-part-save>Apply</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="modal" data-bom-calculator-modal hidden>
         <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="bom-calculator-title">

@@ -10,7 +10,7 @@ import { logger, serializeError } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { getBillOfMaterials } from './services/bom.js';
 import { getInventorySnapshot } from './services/inventory.js';
-import { searchParts } from './services/parts.js';
+import { getPartDetail, listPartTypes, searchParts, upsertPart } from './services/parts.js';
 import { getUnitsOfMeasure } from './services/uom.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
@@ -181,6 +181,116 @@ async function handlePrismaSyncRequest(res: ServerResponse) {
   }
 }
 
+async function handlePartTypes(res: ServerResponse) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  try {
+    const partTypes = await listPartTypes();
+    res.statusCode = 200;
+    res.end(JSON.stringify({ data: partTypes }));
+  } catch (error) {
+    logger.error('Failed to load part types', { error: serializeError(error) });
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: 'Unable to retrieve part types.' }));
+  }
+}
+
+async function handlePartDetail(res: ServerResponse, partNumber: string) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  try {
+    const detail = await getPartDetail(partNumber);
+
+    if (!detail) {
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: 'Part not found.' }));
+      return;
+    }
+
+    res.statusCode = 200;
+    res.end(JSON.stringify({ data: detail }));
+  } catch (error) {
+    logger.error('Failed to load part detail', { partNumber, error: serializeError(error) });
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: 'Unable to retrieve part detail.' }));
+  }
+}
+
+function parseNumeric(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseInt(value.trim(), 10);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
+async function handlePartUpsert(
+  req: IncomingMessage,
+  res: ServerResponse,
+  allowCreate: boolean,
+  overridePartNumber?: string,
+) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  try {
+    const body = (await readRequestBody(req)) as Record<string, unknown> | null;
+
+    if (!body || typeof body !== 'object') {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'Request body is required.' }));
+      return;
+    }
+
+    const partNumber = overridePartNumber ?? (typeof body['partNumber'] === 'string' ? body['partNumber'] : '');
+
+    const payload = {
+      partNumber,
+      description: typeof body['description'] === 'string' ? body['description'] : undefined,
+      revision: typeof body['revision'] === 'string' ? body['revision'] : undefined,
+      stockUom: typeof body['stockUom'] === 'string' ? body['stockUom'] : undefined,
+      status: typeof body['status'] === 'string' ? body['status'] : undefined,
+      partTypeId: parseNumeric(body['partTypeId']),
+      attributes: Array.isArray(body['attributes'])
+        ? (body['attributes'] as unknown[]).map((entry) => ({
+            attributeId: parseNumeric((entry as Record<string, unknown>)['attributeId']),
+            value: typeof (entry as Record<string, unknown>)['value'] === 'string'
+              ? ((entry as Record<string, unknown>)['value'] as string)
+              : '',
+          }))
+        : undefined,
+    };
+
+    const result = await upsertPart(payload, allowCreate);
+    res.statusCode = allowCreate && !overridePartNumber ? 201 : 200;
+    res.end(JSON.stringify({ data: result }));
+  } catch (error) {
+    let status = 500;
+    let message = 'Unable to save part.';
+
+    if (error instanceof Error) {
+      message = error.message;
+
+      if (/missing required/i.test(error.message)) {
+        status = 400;
+      } else if (/does not exist/i.test(error.message)) {
+        status = 404;
+      } else if (/required/i.test(error.message)) {
+        status = 400;
+      }
+    }
+
+    res.statusCode = status;
+    res.end(JSON.stringify({ error: message }));
+  }
+}
+
 function resolveMimeType(filePath: string) {
   const extension = path.extname(filePath).toLowerCase();
   return MIME_TYPES[extension] ?? 'application/octet-stream';
@@ -199,6 +309,36 @@ function parseBooleanFlag(value: string | null): boolean {
 
   const normalized = value.trim().toLowerCase();
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+}
+
+async function readRequestBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const totalLength = chunks.reduce((sum, buffer) => sum + buffer.length, 0);
+
+    if (totalLength > 1_000_000) {
+      throw new Error('Request body is too large.');
+    }
+  }
+
+  if (chunks.length === 0) {
+    return null;
+  }
+
+  const payload = Buffer.concat(chunks).toString('utf8').trim();
+
+  if (payload.length === 0) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(payload);
+  } catch (error) {
+    logger.warn('Failed to parse JSON payload', { error: serializeError(error) });
+    throw new Error('Invalid JSON payload.');
+  }
 }
 
 function resolvePartResultLimit(rawLimit: string | null): number | undefined {
@@ -422,6 +562,28 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
+  if (req.method === 'GET' && normalizedPath === '/api/part-types') {
+    await handlePartTypes(res);
+    return;
+  }
+
+  if (req.method === 'GET' && normalizedPath.startsWith('/api/parts/')) {
+    const partNumber = decodeURIComponent(normalizedPath.replace('/api/parts/', ''));
+    await handlePartDetail(res, partNumber);
+    return;
+  }
+
+  if (req.method === 'POST' && normalizedPath === '/api/parts') {
+    await handlePartUpsert(req, res, true);
+    return;
+  }
+
+  if (req.method === 'PUT' && normalizedPath.startsWith('/api/parts/')) {
+    const partNumber = decodeURIComponent(normalizedPath.replace('/api/parts/', ''));
+    await handlePartUpsert(req, res, false, partNumber);
+    return;
+  }
+
   if (req.method === 'GET' && normalizedPath === '/api/parts') {
     await handlePartSearch(req, res, {
       partNumber: url.searchParams.get('partNumber') ?? '',
@@ -453,7 +615,7 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
 
   if (req.method !== 'GET') {
     res.statusCode = 405;
-    res.setHeader('Allow', 'GET, POST');
+    res.setHeader('Allow', 'GET, POST, PUT');
     res.end('Method Not Allowed');
     return;
   }
