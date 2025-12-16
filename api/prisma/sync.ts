@@ -41,7 +41,7 @@ async function runPrismaCommand(args: string[], step: string, schemaPath: string
     npm_config_cache: npmCacheDir,
     NPM_CONFIG_TMP: npmTmpDir,
     npm_config_tmp: npmTmpDir,
-    PRISMA_CLI_BINARY_TARGETS: 'native,rhel-openssl-3.0.x',
+    PRISMA_CLI_BINARY_TARGETS: 'rhel-openssl-3.0.x',
   };
 
   return await new Promise<PrismaStepResult>((resolve, reject) => {
