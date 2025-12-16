@@ -13,6 +13,40 @@ export type PartSearchResult = {
   status: string;
 };
 
+export type PartAttributeDefinition = {
+  attributeId: number;
+  code: string;
+  required: boolean;
+};
+
+export type PartTypeDefinition = {
+  id: number;
+  code: string;
+  sheetName: string;
+  packageColumn: string;
+  attributes: PartAttributeDefinition[];
+};
+
+export type PartDetail = {
+  partNumber: string;
+  description: string;
+  revision: string;
+  stockUom: string;
+  status: string;
+  partTypeId: number | null;
+  attributes: { attributeId: number; code: string; value: string; required: boolean }[];
+};
+
+export type PartUpsertPayload = {
+  partNumber: string;
+  description?: string;
+  revision?: string;
+  stockUom?: string;
+  status?: string;
+  partTypeId?: number;
+  attributes?: { attributeId: number; value: string }[];
+};
+
 type PartSearchOptions = {
   partNumber: string;
   description: string;
@@ -109,6 +143,18 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
     stockUom,
     status,
   };
+}
+
+function isAttributeRequired(rule: unknown): boolean {
+  if (rule === null || rule === undefined) {
+    return false;
+  }
+
+  if (typeof rule === 'string') {
+    return rule.trim().length > 0;
+  }
+
+  return true;
 }
 
 export async function searchParts(options: PartSearchOptions): Promise<PartSearchResult[]> {
@@ -214,4 +260,209 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
   `);
 
   return results.map(mapPartResult);
+}
+
+export async function listPartTypes(): Promise<PartTypeDefinition[]> {
+  const partTypes = await prisma.part_type.findMany({
+    include: {
+      attribute_part_type_map: {
+        include: { attribute: true },
+      },
+    },
+    orderBy: { part_type_id: 'asc' },
+  });
+
+  return partTypes.map((entry) => ({
+    id: entry.part_type_id,
+    code: entry.code,
+    sheetName: entry.sheet_name,
+    packageColumn: entry.package_column,
+    attributes: entry.attribute_part_type_map
+      .filter((mapping) => Boolean(mapping.attribute))
+      .map((mapping) => ({
+        attributeId: mapping.attribute_ID,
+        code: mapping.attribute?.attribute_code ?? String(mapping.attribute_ID),
+        required: isAttributeRequired(mapping.attribute?.required_rule),
+      })),
+  }));
+}
+
+function toSafeString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+export async function getPartDetail(partNumber: string): Promise<PartDetail | null> {
+  const trimmed = toSafeString(partNumber);
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const part = await prisma.partmaster.findUnique({
+    where: { PartNumber: trimmed },
+    include: {
+      part_type: true,
+      part_data: {
+        include: {
+          attribute: true,
+        },
+      },
+    },
+  });
+
+  if (!part) {
+    return null;
+  }
+
+  return {
+    partNumber: part.PartNumber,
+    description: part.DescText ?? '',
+    revision: part.Revision ?? '',
+    stockUom: part.StockUOM ?? '',
+    status: part.ISC ?? '',
+    partTypeId: part.part_type_ID ?? null,
+    attributes: part.part_data.map((entry) => ({
+      attributeId: entry.attribute_ID,
+      code: entry.attribute?.attribute_code ?? String(entry.attribute_ID),
+      value: entry.part_data ?? '',
+      required: isAttributeRequired(entry.attribute?.required_rule),
+    })),
+  };
+}
+
+async function resolveAttributeDefinitions(partTypeId: number | undefined): Promise<Map<number, PartAttributeDefinition>> {
+  if (typeof partTypeId !== 'number' || !Number.isFinite(partTypeId)) {
+    return new Map();
+  }
+
+  const mappings = await prisma.attribute_part_type_map.findMany({
+    where: { part_type_ID: partTypeId },
+    include: { attribute: true },
+  });
+
+  const definitions = mappings
+    .filter((mapping) => Boolean(mapping.attribute))
+    .map((mapping) => ({
+      attributeId: mapping.attribute_ID,
+      code: mapping.attribute?.attribute_code ?? String(mapping.attribute_ID),
+      required: isAttributeRequired(mapping.attribute?.required_rule),
+    }));
+
+  return new Map(definitions.map((entry) => [entry.attributeId, entry]));
+}
+
+function normalizeAttributes(
+  attributes: PartUpsertPayload['attributes'],
+  definitions: Map<number, PartAttributeDefinition>,
+): { attributeId: number; value: string }[] {
+  if (!Array.isArray(attributes)) {
+    return [];
+  }
+
+  const allowedIds = new Set(definitions.keys());
+
+  return attributes
+    .map((item) => ({
+      attributeId: Number.parseInt(String(item.attributeId), 10),
+      value: toSafeString(item.value),
+    }))
+    .filter((item) => Number.isFinite(item.attributeId) && allowedIds.has(item.attributeId));
+}
+
+function assertRequiredAttributes(
+  attributes: { attributeId: number; value: string }[],
+  definitions: Map<number, PartAttributeDefinition>,
+): void {
+  const missingRequired: string[] = [];
+
+  for (const definition of definitions.values()) {
+    if (!definition.required) {
+      continue;
+    }
+
+    const match = attributes.find((entry) => entry.attributeId === definition.attributeId);
+
+    if (!match || match.value.length === 0) {
+      missingRequired.push(definition.code);
+    }
+  }
+
+  if (missingRequired.length > 0) {
+    throw new Error(`Missing required attributes: ${missingRequired.join(', ')}`);
+  }
+}
+
+export async function upsertPart(payload: PartUpsertPayload, allowCreate: boolean): Promise<PartDetail> {
+  const partNumber = toSafeString(payload.partNumber);
+
+  if (!partNumber) {
+    throw new Error('A part number is required.');
+  }
+
+  const existingPart = await prisma.partmaster.findUnique({
+    where: { PartNumber: partNumber },
+    select: { PartMaster_PKey: true, part_type_ID: true },
+  });
+
+  const effectivePartTypeId =
+    typeof payload.partTypeId === 'number' && Number.isFinite(payload.partTypeId)
+      ? payload.partTypeId
+      : existingPart?.part_type_ID;
+
+  if (!effectivePartTypeId) {
+    if (!existingPart) {
+      throw new Error('A Part Type is required to create a part.');
+    }
+
+    throw new Error('A Part Type must be selected before editing this part.');
+  }
+
+  const attributeDefinitions = await resolveAttributeDefinitions(effectivePartTypeId);
+  const normalizedAttributes = normalizeAttributes(payload.attributes, attributeDefinitions);
+
+  if (attributeDefinitions.size > 0) {
+    assertRequiredAttributes(normalizedAttributes, attributeDefinitions);
+  }
+
+  const data = {
+    DescText: toSafeString(payload.description) || null,
+    Revision: toSafeString(payload.revision) || null,
+    StockUOM: toSafeString(payload.stockUom) || null,
+    ISC: toSafeString(payload.status) || null,
+    part_type_ID: effectivePartTypeId,
+  } satisfies Prisma.partmasterUpdateInput;
+
+  if (!existingPart && !allowCreate) {
+    throw new Error('Part does not exist.');
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const partRecord = existingPart
+      ? await tx.partmaster.update({ where: { PartNumber: partNumber }, data })
+      : await tx.partmaster.create({
+          data: {
+            PartNumber: partNumber,
+            DateAdded: new Date(),
+            ...data,
+          },
+        });
+
+    const partKey = partRecord.PartMaster_PKey;
+
+    await tx.part_data.deleteMany({ where: { PartMaster_PKey: partKey } });
+
+    if (normalizedAttributes.length > 0) {
+      await tx.part_data.createMany({
+        data: normalizedAttributes.map((entry) => ({
+          PartMaster_PKey: partKey,
+          attribute_ID: entry.attributeId,
+          part_data: entry.value || null,
+        })),
+      });
+    }
+
+    return partRecord;
+  });
+
+  return (await getPartDetail(result.PartNumber)) as PartDetail;
 }

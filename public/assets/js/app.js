@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initBillOfMaterials();
     initInventorySnapshot();
     initUnitsOfMeasure();
+    initPartEditor();
   }
 
   if (bodyPage === 'dashboard') {
@@ -382,6 +383,11 @@ function initInventorySearch() {
       void performSearch();
     });
   }
+
+  document.addEventListener('inventory:part-changed', () => {
+    window.clearTimeout(debounceTimer);
+    void performSearch();
+  });
 
   showMessage('Adjust the filters to search for parts.');
 }
@@ -1024,6 +1030,385 @@ function initUnitsOfMeasure() {
   };
 
   void loadData();
+}
+
+function initPartEditor() {
+  const addButton = document.querySelector('[data-part-add]');
+  const modal = document.querySelector('[data-part-modal]');
+  const modalTitle = modal?.querySelector('[data-part-modal-title]');
+  const modalSubtitle = modal?.querySelector('[data-part-modal-subtitle]');
+  const form = modal?.querySelector('[data-part-form]');
+  const feedback = modal?.querySelector('[data-part-feedback]');
+  const partNumberInput = modal?.querySelector('[data-part-number]');
+  const descriptionInput = modal?.querySelector('[data-part-description]');
+  const revisionInput = modal?.querySelector('[data-part-revision]');
+  const stockUomInput = modal?.querySelector('[data-part-stockuom]');
+  const statusInput = modal?.querySelector('[data-part-status]');
+  const partTypeSelect = modal?.querySelector('[data-part-type]');
+  const attributeSection = modal?.querySelector('[data-part-attribute-section]');
+  const attributeContainer = modal?.querySelector('[data-part-attributes]');
+  const viewActions = modal?.querySelector('[data-part-view-actions]');
+  const editActions = modal?.querySelector('[data-part-edit-actions]');
+  const editButton = modal?.querySelector('[data-part-edit]');
+  const closeButton = modal?.querySelector('[data-part-close]');
+  const saveButton = modal?.querySelector('[data-part-save]');
+  const cancelButton = modal?.querySelector('[data-part-cancel]');
+  const typeWarning = modal?.querySelector('[data-part-type-warning]');
+
+  if (
+    !modal ||
+    !form ||
+    !feedback ||
+    !partNumberInput ||
+    !descriptionInput ||
+    !revisionInput ||
+    !stockUomInput ||
+    !statusInput ||
+    !partTypeSelect ||
+    !attributeSection ||
+    !attributeContainer ||
+    !viewActions ||
+    !editActions ||
+    !editButton ||
+    !closeButton ||
+    !saveButton ||
+    !cancelButton
+  ) {
+    return;
+  }
+
+  const state = {
+    partTypes: [],
+    partTypesLoaded: false,
+    currentPart: null,
+    mode: 'view',
+  };
+
+  const setFeedback = (message, tone = 'info') => {
+    feedback.textContent = message || '';
+    feedback.dataset.tone = tone;
+  };
+
+  const toggleModal = (visible) => {
+    modal.hidden = !visible;
+    document.body.classList.toggle('is-modal-open', visible);
+  };
+
+  const toNumber = (value) => {
+    const parsed = Number.parseInt(String(value), 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  const loadPartTypes = async () => {
+    if (state.partTypesLoaded) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/part-types');
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const payload = await response.json();
+      state.partTypes = Array.isArray(payload?.data) ? payload.data : [];
+      state.partTypesLoaded = true;
+    } catch (error) {
+      console.error('Failed to load part types', error);
+      setFeedback('Unable to load Part Types. Please try again.', 'error');
+      state.partTypes = [];
+    }
+  };
+
+  const renderPartTypeOptions = (selectedId) => {
+    partTypeSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select Part Type';
+    partTypeSelect.appendChild(placeholder);
+
+    state.partTypes.forEach((entry) => {
+      const option = document.createElement('option');
+      option.value = String(entry.id);
+      option.textContent = `${entry.code} (${entry.sheetName})`;
+      option.selected = typeof selectedId === 'number' && entry.id === selectedId;
+      partTypeSelect.appendChild(option);
+    });
+  };
+
+  const renderAttributes = (partTypeId, values = new Map()) => {
+    attributeContainer.innerHTML = '';
+    const partType = state.partTypes.find((entry) => entry.id === partTypeId);
+
+    if (!partType || !Array.isArray(partType.attributes) || partType.attributes.length === 0) {
+      attributeSection.hidden = true;
+      return;
+    }
+
+    partType.attributes.forEach((attribute) => {
+      const label = document.createElement('label');
+      label.className = 'modal__label';
+      const labelId = `attribute-${attribute.attributeId}`;
+      label.htmlFor = labelId;
+      label.textContent = attribute.code;
+
+      if (attribute.required) {
+        const requiredMark = document.createElement('span');
+        requiredMark.className = 'field-required';
+        requiredMark.textContent = ' *';
+        label.appendChild(requiredMark);
+      }
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.id = labelId;
+      input.dataset.attributeId = String(attribute.attributeId);
+      input.dataset.partAttributeInput = '';
+      input.required = Boolean(attribute.required);
+      input.value = values.get(attribute.attributeId) ?? '';
+
+      attributeContainer.appendChild(label);
+      attributeContainer.appendChild(input);
+    });
+
+    attributeSection.hidden = false;
+  };
+
+  const setMode = (mode) => {
+    state.mode = mode;
+    const isEdit = mode !== 'view';
+    const isCreate = mode === 'create';
+
+    partNumberInput.disabled = !isCreate;
+    descriptionInput.disabled = !isEdit;
+    revisionInput.disabled = !isEdit;
+    stockUomInput.disabled = !isEdit;
+    statusInput.disabled = !isEdit;
+    partTypeSelect.disabled = !isEdit;
+
+    const attributeInputs = attributeContainer.querySelectorAll('[data-part-attribute-input], [data-part-attribute-input] input');
+    attributeInputs.forEach((input) => {
+      input.disabled = !isEdit;
+    });
+
+    viewActions.hidden = isEdit;
+    editActions.hidden = !isEdit;
+    saveButton.textContent = isCreate ? 'Add' : 'Apply';
+  };
+
+  const resetForm = () => {
+    form.reset();
+    setFeedback('');
+    state.currentPart = null;
+    state.mode = 'create';
+    renderPartTypeOptions();
+    renderAttributes(null);
+    if (modalTitle) {
+      modalTitle.textContent = 'Add Part';
+    }
+    if (modalSubtitle) {
+      modalSubtitle.textContent = '';
+    }
+    if (typeWarning) {
+      typeWarning.hidden = true;
+    }
+    setMode('create');
+  };
+
+  const getAttributeValues = () => {
+    const values = [];
+    const inputs = attributeContainer.querySelectorAll('input[data-part-attribute-input], input[data-attribute-id], input[data-part-attribute-input=""]');
+
+    inputs.forEach((input) => {
+      const attributeId = toNumber(input.dataset.attributeId);
+      if (attributeId !== null) {
+        values.push({ attributeId, value: input.value.trim() });
+      }
+    });
+
+    return values;
+  };
+
+  const populateForm = (detail) => {
+    const attributeMap = new Map();
+
+    if (Array.isArray(detail?.attributes)) {
+      detail.attributes.forEach((entry) => {
+        attributeMap.set(entry.attributeId, entry.value ?? '');
+      });
+    }
+
+    partNumberInput.value = detail?.partNumber ?? '';
+    descriptionInput.value = detail?.description ?? '';
+    revisionInput.value = detail?.revision ?? '';
+    stockUomInput.value = detail?.stockUom ?? '';
+    statusInput.value = detail?.status ?? '';
+    renderPartTypeOptions(detail?.partTypeId ?? null);
+    renderAttributes(detail?.partTypeId ?? null, attributeMap);
+
+    if (modalTitle) {
+      modalTitle.textContent = detail?.partNumber ? `Part ${detail.partNumber}` : 'Part Details';
+    }
+
+    if (modalSubtitle) {
+      modalSubtitle.textContent = detail?.description ?? '';
+    }
+
+    if (typeWarning) {
+      typeWarning.hidden = Boolean(detail?.partTypeId);
+    }
+
+    if (detail?.partTypeId) {
+      setMode('view');
+    } else {
+      setMode('edit');
+    }
+
+    state.currentPart = detail ?? null;
+    setFeedback('');
+  };
+
+  const closeModal = () => {
+    toggleModal(false);
+    setMode('view');
+  };
+
+  const openForCreate = async () => {
+    await loadPartTypes();
+    resetForm();
+    toggleModal(true);
+  };
+
+  const openForPart = async (partNumber) => {
+    await loadPartTypes();
+
+    if (!partNumber || partNumber.length === 0) {
+      return;
+    }
+
+    form.reset();
+    renderPartTypeOptions();
+    renderAttributes(null, new Map());
+    setMode('view');
+    setFeedback('Loading part details…');
+    toggleModal(true);
+
+    try {
+      const response = await fetch(`/api/parts/${encodeURIComponent(partNumber)}`);
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const payload = await response.json();
+      populateForm(payload?.data ?? null);
+      setFeedback('');
+    } catch (error) {
+      console.error('Failed to load part detail', error);
+      setFeedback('Unable to load part details.');
+    }
+  };
+
+  const saveChanges = async () => {
+    const partNumber = partNumberInput.value.trim();
+    const description = descriptionInput.value.trim();
+    const revision = revisionInput.value.trim();
+    const stockUom = stockUomInput.value.trim();
+    const status = statusInput.value.trim();
+    const partTypeId = toNumber(partTypeSelect.value);
+    const attributes = getAttributeValues();
+
+    if (!partNumber) {
+      setFeedback('Part Number is required.', 'error');
+      partNumberInput.focus();
+      return;
+    }
+
+    setFeedback('Saving…');
+
+    const isCreate = state.mode === 'create';
+    const endpoint = isCreate
+      ? '/api/parts'
+      : `/api/parts/${encodeURIComponent(state.currentPart?.partNumber ?? partNumber)}`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: isCreate ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          partNumber,
+          description,
+          revision,
+          stockUom,
+          status,
+          partTypeId,
+          attributes,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message = typeof payload?.error === 'string' ? payload.error : 'Unable to save part.';
+        throw new Error(message);
+      }
+
+      setFeedback(isCreate ? 'Part added.' : 'Changes applied.', 'success');
+      populateForm(payload?.data ?? null);
+      setMode('view');
+      document.dispatchEvent(new CustomEvent('inventory:part-changed'));
+    } catch (error) {
+      console.error('Failed to save part', error);
+      const message = error instanceof Error ? error.message : 'Unable to save part.';
+      setFeedback(message, 'error');
+    }
+  };
+
+  addButton?.addEventListener('click', () => {
+    void openForCreate();
+  });
+
+  partTypeSelect.addEventListener('change', () => {
+    const existingValues = new Map();
+    attributeContainer.querySelectorAll('input[data-part-attribute-input]').forEach((input) => {
+      const attributeId = toNumber(input.dataset.attributeId);
+      if (attributeId !== null) {
+        existingValues.set(attributeId, input.value);
+      }
+    });
+
+    const selectedId = toNumber(partTypeSelect.value);
+    renderAttributes(selectedId, existingValues);
+  });
+
+  editButton.addEventListener('click', () => {
+    setMode('edit');
+  });
+
+  saveButton.addEventListener('click', () => {
+    void saveChanges();
+  });
+
+  closeButton.addEventListener('click', () => {
+    closeModal();
+  });
+
+  cancelButton.addEventListener('click', () => {
+    if (state.currentPart) {
+      populateForm(state.currentPart);
+      setMode('view');
+    } else {
+      closeModal();
+    }
+  });
+
+  document.addEventListener('inventory:part-selected', (event) => {
+    const detail = event.detail;
+    if (detail?.partNumber) {
+      void openForPart(detail.partNumber);
+    }
+  });
 }
 
 function initDashboardAdminTools() {
