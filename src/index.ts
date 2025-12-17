@@ -258,12 +258,20 @@ async function handlePartUpsert(
       status: typeof body['status'] === 'string' ? body['status'] : undefined,
       partTypeId: parseNumeric(body['partTypeId']),
       attributes: Array.isArray(body['attributes'])
-        ? (body['attributes'] as unknown[]).map((entry) => ({
-            attributeId: parseNumeric((entry as Record<string, unknown>)['attributeId']),
-            value: typeof (entry as Record<string, unknown>)['value'] === 'string'
-              ? ((entry as Record<string, unknown>)['value'] as string)
-              : '',
-          }))
+        ? (body['attributes'] as unknown[]).map((entry, index) => {
+            const attributeId = parseNumeric((entry as Record<string, unknown>)['attributeId']);
+
+            if (typeof attributeId !== 'number') {
+              throw new Error(`Attribute at index ${index} is missing a valid attributeId.`);
+            }
+
+            return {
+              attributeId,
+              value: typeof (entry as Record<string, unknown>)['value'] === 'string'
+                ? ((entry as Record<string, unknown>)['value'] as string)
+                : '',
+            };
+          })
         : undefined,
     };
 
@@ -278,6 +286,8 @@ async function handlePartUpsert(
       message = error.message;
 
       if (/missing required/i.test(error.message)) {
+        status = 400;
+      } else if (/attribute .*missing/i.test(error.message)) {
         status = 400;
       } else if (/does not exist/i.test(error.message)) {
         status = 404;

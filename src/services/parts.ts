@@ -424,13 +424,15 @@ export async function upsertPart(payload: PartUpsertPayload, allowCreate: boolea
     assertRequiredAttributes(normalizedAttributes, attributeDefinitions);
   }
 
-  const data = {
+  const baseData = {
     DescText: toSafeString(payload.description) || null,
     Revision: toSafeString(payload.revision) || null,
     StockUOM: toSafeString(payload.stockUom) || null,
     ISC: toSafeString(payload.status) || null,
     part_type_ID: effectivePartTypeId,
-  } satisfies Prisma.partmasterUpdateInput;
+  } satisfies Pick<Prisma.partmasterUncheckedCreateInput, 'DescText' | 'Revision' | 'StockUOM' | 'ISC' | 'part_type_ID'>;
+
+  const updateData: Prisma.partmasterUncheckedUpdateInput = { ...baseData };
 
   if (!existingPart && !allowCreate) {
     throw new Error('Part does not exist.');
@@ -438,13 +440,13 @@ export async function upsertPart(payload: PartUpsertPayload, allowCreate: boolea
 
   const result = await prisma.$transaction(async (tx) => {
     const partRecord = existingPart
-      ? await tx.partmaster.update({ where: { PartNumber: partNumber }, data })
+      ? await tx.partmaster.update({ where: { PartNumber: partNumber }, data: updateData })
       : await tx.partmaster.create({
           data: {
             PartNumber: partNumber,
             DateAdded: new Date(),
-            ...data,
-          },
+            ...baseData,
+          } satisfies Prisma.partmasterUncheckedCreateInput,
         });
 
     const partKey = partRecord.PartMaster_PKey;
