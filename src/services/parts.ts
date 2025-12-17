@@ -424,13 +424,13 @@ export async function upsertPart(payload: PartUpsertPayload, allowCreate: boolea
     assertRequiredAttributes(normalizedAttributes, attributeDefinitions);
   }
 
-  const data = {
+  const data: Prisma.partmasterUpdateInput = {
     DescText: toSafeString(payload.description) || null,
     Revision: toSafeString(payload.revision) || null,
     StockUOM: toSafeString(payload.stockUom) || null,
     ISC: toSafeString(payload.status) || null,
     part_type_ID: effectivePartTypeId,
-  } satisfies Prisma.partmasterUpdateInput;
+  } as Prisma.partmasterUpdateInput;
 
   if (!existingPart && !allowCreate) {
     throw new Error('Part does not exist.');
