@@ -29,6 +29,7 @@ export type PartTypeDefinition = {
   code: string;
   sheetName: string;
   packageColumn: string;
+  packageOptions: PackageOption[];
   attributes: PartAttributeDefinition[];
 };
 
@@ -41,6 +42,108 @@ export type PartDetail = {
   partTypeId: number | null;
   attributes: { attributeId: number; code: string; value: string; required: boolean; requiredRule: string | null }[];
 };
+
+type PackageMasterColumn =
+  | 'resistors'
+  | 'capacitors'
+  | 'inductors_magnetic_components'
+  | 'diodes'
+  | 'leds_optoelectronics'
+  | 'transistors'
+  | 'linear_ics'
+  | 'power_ics'
+  | 'logic_ics'
+  | 'interface_communication_ics'
+  | 'memory_devices'
+  | 'microcontrollers_mcus'
+  | 'microprocessors_mpus'
+  | 'dsps_fpgas_asics_socs'
+  | 'sensors_environmental'
+  | 'sensors_motion_position'
+  | 'sensors_electrical'
+  | 'sensors_force_flow_specialized'
+  | 'electromechanical_relays'
+  | 'switches'
+  | 'connectors_board_level'
+  | 'connectors_wire_level'
+  | 'connectors_i_o'
+  | 'wire_cable'
+  | 'cable_assemblies'
+  | 'fuses_protection'
+  | 'batteries'
+  | 'battery_holders_accessories'
+  | 'power_modules_supplies'
+  | 'fans_blowers'
+  | 'fan_accessories'
+  | 'heat_management'
+  | 'crystals_oscillators'
+  | 'antennas'
+  | 'rf_modules'
+  | 'audio_components'
+  | 'displays'
+  | 'pcbs_bare_boards'
+  | 'pcb_assemblies_dev_boards'
+  | 'mechanical_hardware'
+  | 'enclosures'
+  | 'labels_markers'
+  | 'tools'
+  | 'cleaning_chemicals'
+  | 'motors_actuators'
+  | 'light_sources';
+
+export type PackageOption = {
+  id: number;
+  name: string;
+};
+
+const PACKAGE_MASTER_COLUMNS: PackageMasterColumn[] = [
+  'resistors',
+  'capacitors',
+  'inductors_magnetic_components',
+  'diodes',
+  'leds_optoelectronics',
+  'transistors',
+  'linear_ics',
+  'power_ics',
+  'logic_ics',
+  'interface_communication_ics',
+  'memory_devices',
+  'microcontrollers_mcus',
+  'microprocessors_mpus',
+  'dsps_fpgas_asics_socs',
+  'sensors_environmental',
+  'sensors_motion_position',
+  'sensors_electrical',
+  'sensors_force_flow_specialized',
+  'electromechanical_relays',
+  'switches',
+  'connectors_board_level',
+  'connectors_wire_level',
+  'connectors_i_o',
+  'wire_cable',
+  'cable_assemblies',
+  'fuses_protection',
+  'batteries',
+  'battery_holders_accessories',
+  'power_modules_supplies',
+  'fans_blowers',
+  'fan_accessories',
+  'heat_management',
+  'crystals_oscillators',
+  'antennas',
+  'rf_modules',
+  'audio_components',
+  'displays',
+  'pcbs_bare_boards',
+  'pcb_assemblies_dev_boards',
+  'mechanical_hardware',
+  'enclosures',
+  'labels_markers',
+  'tools',
+  'cleaning_chemicals',
+  'motors_actuators',
+  'light_sources',
+];
 
 export type PartUpsertPayload = {
   partNumber: string;
@@ -219,6 +322,55 @@ function toNullableNumber(value: unknown): number | null {
   }
 
   return null;
+}
+
+function normalizeIdentifier(value: unknown): string {
+  return normalizeString(value).toLowerCase().replace(/[^a-z0-9_]/g, '');
+}
+
+function resolvePackageColumn(partType: { packageColumn?: string | null; code?: string | null }): PackageMasterColumn | null {
+  const candidates = [normalizeIdentifier(partType.packageColumn), normalizeIdentifier(partType.code)];
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
+    const match = PACKAGE_MASTER_COLUMNS.find((column) => column.toLowerCase() === candidate);
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
+}
+
+async function listPackageOptions(partType: { packageColumn?: string | null; code?: string | null }): Promise<PackageOption[]> {
+  const column = resolvePackageColumn(partType);
+
+  if (!column) {
+    return [];
+  }
+
+  try {
+    const packages = await prisma.$queryRaw<{ package_id: number; package_name: string }[]>(Prisma.sql`
+      SELECT package_id, package_name
+      FROM package_master
+      WHERE ${Prisma.raw(`\`${column}\``)} = TRUE
+      ORDER BY package_name ASC
+    `);
+
+    return packages
+      .map((entry) => ({ id: asNumber(entry.package_id), name: normalizeString(entry.package_name) }))
+      .filter((entry) => entry.id > 0 && entry.name.length > 0);
+  } catch (error) {
+    logger.error('Failed to load package options for part type', {
+      partTypeCode: partType.code,
+      packageColumn: partType.packageColumn,
+      error,
+    });
+
+    return [];
+  }
 }
 
 function findSubtypeValue(
@@ -445,23 +597,28 @@ export async function listPartTypes(): Promise<PartTypeDefinition[]> {
     orderBy: { part_type_id: 'asc' },
   });
 
-  return partTypes.map((entry) => ({
-    id: entry.part_type_id,
-    code: entry.code,
-    sheetName: entry.sheet_name,
-    packageColumn: entry.package_column,
-    attributes: entry.attribute_part_type_map
-      .filter((mapping) => Boolean(mapping.attribute))
-      .map((mapping) => ({
-        attributeId: mapping.attribute_ID,
-        code: mapping.attribute?.attribute_code ?? String(mapping.attribute_ID),
-        dataType: mapping.attribute?.data_type ?? null,
-        minValue: toNullableNumber(mapping.attribute?.min_value),
-        maxValue: toNullableNumber(mapping.attribute?.max_value),
-        unit: mapping.attribute?.unit ?? null,
-        requiredRule: mapping.attribute?.required_rule ?? null,
-      })),
-  }));
+  const withPackages = await Promise.all(
+    partTypes.map(async (entry) => ({
+      id: entry.part_type_id,
+      code: entry.code,
+      sheetName: entry.sheet_name,
+      packageColumn: entry.package_column,
+      packageOptions: await listPackageOptions({ packageColumn: entry.package_column, code: entry.code }),
+      attributes: entry.attribute_part_type_map
+        .filter((mapping) => Boolean(mapping.attribute))
+        .map((mapping) => ({
+          attributeId: mapping.attribute_ID,
+          code: mapping.attribute?.attribute_code ?? String(mapping.attribute_ID),
+          dataType: mapping.attribute?.data_type ?? null,
+          minValue: toNullableNumber(mapping.attribute?.min_value),
+          maxValue: toNullableNumber(mapping.attribute?.max_value),
+          unit: mapping.attribute?.unit ?? null,
+          requiredRule: mapping.attribute?.required_rule ?? null,
+        })),
+    })),
+  );
+
+  return withPackages;
 }
 
 function toSafeString(value: unknown): string {

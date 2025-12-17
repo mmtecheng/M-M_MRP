@@ -1105,13 +1105,22 @@ function initPartEditor() {
 
   const normalizeAttributeCode = (code) => String(code ?? '').toLowerCase().replace(/_\d+$/, '');
 
+  const toTitleCase = (value) =>
+    value
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
   const formatAttributeLabel = (attribute) => {
     if (!attribute) return 'Attribute';
     const baseLabel = attribute.code ?? `Attribute ${attribute.attributeId}`;
-    if (normalizeAttributeCode(baseLabel) === 'subtype') {
-      return baseLabel.replace(/_\d+$/, '');
-    }
-    return baseLabel;
+    const normalizedCode = normalizeAttributeCode(baseLabel);
+    const labelWithSpaces = (normalizedCode === 'subtype' ? baseLabel.replace(/_\d+$/, '') : baseLabel)
+      .replace(/_/g, ' ')
+      .trim();
+
+    return toTitleCase(labelWithSpaces || `Attribute ${attribute.attributeId}`);
   };
 
   const parseAttributeDataType = (dataType) => {
@@ -1194,6 +1203,59 @@ function initPartEditor() {
     return true;
   };
 
+  const prioritizeMountingStyleOptions = (options = []) => {
+    const prioritized = [];
+    const seen = new Set();
+    const preferred = ['Surface Mount', 'Through-Hole'];
+
+    preferred.forEach((label) => {
+      const match = options.find((option) => String(option ?? '').toLowerCase() === label.toLowerCase());
+      const valueToUse = match ?? label;
+      const key = String(valueToUse).toLowerCase();
+      if (!seen.has(key)) {
+        prioritized.push(valueToUse);
+        seen.add(key);
+      }
+    });
+
+    options.forEach((option) => {
+      const key = String(option ?? '').toLowerCase();
+      if (!option || seen.has(key)) return;
+      prioritized.push(option);
+      seen.add(key);
+    });
+
+    return prioritized;
+  };
+
+  const getAttributeWeight = (attribute) => {
+    const code = normalizeAttributeCode(attribute?.code);
+    if (code === 'alternate') return 2;
+    if (code === 'notes') return 3;
+    return 1;
+  };
+
+  const sortAttributesForDisplay = (attributes, indexLookup) => {
+    const indexed = attributes.map((attribute) => ({
+      attribute,
+      order: indexLookup.get(attribute.attributeId) ?? 0,
+      weight: getAttributeWeight(attribute),
+    }));
+
+    indexed.sort((a, b) => {
+      if (a.weight !== b.weight) {
+        return a.weight - b.weight;
+      }
+
+      return a.order - b.order;
+    });
+
+    return indexed.map((entry) => entry.attribute);
+  };
+
+  const getPackageOptionsForPartType = (partType) =>
+    Array.isArray(partType?.packageOptions) ? partType.packageOptions : [];
+
   const loadPartTypes = async () => {
     if (state.partTypesLoaded) {
       return;
@@ -1246,6 +1308,7 @@ function initPartEditor() {
 
     const attributeValues = values instanceof Map ? new Map(values) : new Map();
     state.attributeValues = attributeValues;
+    const attributeIndexLookup = new Map(partType.attributes.map((attribute, index) => [attribute.attributeId, index]));
 
     const buildAttributeField = (attribute, required) => {
       const field = document.createElement('div');
@@ -1254,7 +1317,8 @@ function initPartEditor() {
       label.className = 'modal__label';
       const labelId = `attribute-${attribute.attributeId}`;
       label.htmlFor = labelId;
-      label.textContent = formatAttributeLabel(attribute);
+      const labelText = formatAttributeLabel(attribute);
+      label.textContent = labelText;
 
       if (required) {
         const requiredMark = document.createElement('span');
@@ -1264,15 +1328,34 @@ function initPartEditor() {
       }
 
       const { kind, options } = parseAttributeDataType(attribute.dataType);
+      const attributeCode = normalizeAttributeCode(attribute.code);
+      const isPackageAttribute = attributeCode === 'package';
       let control;
 
-      if (kind === 'enum') {
+      if (isPackageAttribute) {
         control = document.createElement('select');
         const placeholder = document.createElement('option');
         placeholder.value = '';
-        placeholder.textContent = `Select ${formatAttributeLabel(attribute)}`;
+        placeholder.textContent = `Select ${labelText}`;
         control.appendChild(placeholder);
-        options.forEach((option) => {
+
+        const packageOptions = getPackageOptionsForPartType(partType);
+        packageOptions.forEach((entry) => {
+          const opt = document.createElement('option');
+          opt.value = entry.name;
+          opt.textContent = entry.name;
+          control.appendChild(opt);
+        });
+
+        control.value = attributeValues.get(attribute.attributeId) ?? '';
+      } else if (kind === 'enum') {
+        control = document.createElement('select');
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = `Select ${labelText}`;
+        control.appendChild(placeholder);
+        const optionList = attributeCode === 'mounting_style' ? prioritizeMountingStyleOptions(options) : options;
+        optionList.forEach((option) => {
           const opt = document.createElement('option');
           opt.value = option;
           opt.textContent = option;
@@ -1345,15 +1428,18 @@ function initPartEditor() {
       return;
     }
 
-    partType.attributes
-      .filter((attribute) => !subtypeAttribute || attribute.attributeId !== subtypeAttribute.attributeId)
-      .forEach((attribute) => {
-        const { required, visible } = resolveRequirementState(attribute.requiredRule, subtypeValue);
-        if (!visible) {
-          return;
-        }
-        buildAttributeField(attribute, required);
-      });
+    const sortedAttributes = sortAttributesForDisplay(
+      partType.attributes.filter((attribute) => !subtypeAttribute || attribute.attributeId !== subtypeAttribute.attributeId),
+      attributeIndexLookup,
+    );
+
+    sortedAttributes.forEach((attribute) => {
+      const { required, visible } = resolveRequirementState(attribute.requiredRule, subtypeValue);
+      if (!visible) {
+        return;
+      }
+      buildAttributeField(attribute, required);
+    });
 
     attributeSection.hidden = attributeContainer.children.length === 0;
   };
