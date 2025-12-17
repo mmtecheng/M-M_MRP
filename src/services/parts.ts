@@ -17,7 +17,11 @@ export type PartSearchResult = {
 export type PartAttributeDefinition = {
   attributeId: number;
   code: string;
-  required: boolean;
+  dataType: string | null;
+  minValue: number | null;
+  maxValue: number | null;
+  unit: string | null;
+  requiredRule: string | null;
 };
 
 export type PartTypeDefinition = {
@@ -35,7 +39,7 @@ export type PartDetail = {
   stockUom: string;
   status: string;
   partTypeId: number | null;
-  attributes: { attributeId: number; code: string; value: string; required: boolean }[];
+  attributes: { attributeId: number; code: string; value: string; required: boolean; requiredRule: string | null }[];
 };
 
 export type PartUpsertPayload = {
@@ -168,16 +172,161 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
   };
 }
 
-function isAttributeRequired(rule: unknown): boolean {
-  if (rule === null || rule === undefined) {
-    return false;
+function normalizeAttributeCode(code: unknown): string {
+  return normalizeString(code).toLowerCase().replace(/_\d+$/, '');
+}
+
+function evaluateRequirement(rule: unknown, subtypeValue: string): { required: boolean; visible: boolean } {
+  const normalizedRule = typeof rule === 'string' ? rule.trim().toLowerCase() : '';
+
+  if (!normalizedRule) {
+    return { required: false, visible: true };
   }
 
-  if (typeof rule === 'string') {
-    return rule.trim().length > 0;
+  if (normalizedRule === 'yes') {
+    return { required: true, visible: true };
   }
 
-  return true;
+  if (normalizedRule === 'no') {
+    return { required: false, visible: true };
+  }
+
+  const matches = Array.from(normalizedRule.matchAll(/'([^']+)'/g)).map((match) => match[1]?.trim().toLowerCase());
+  const normalizedSubtype = subtypeValue.trim().toLowerCase();
+
+  if (matches.length > 0 && normalizedSubtype) {
+    const hasMatch = matches.some((entry) => entry === normalizedSubtype);
+    return { required: hasMatch, visible: hasMatch };
+  }
+
+  return { required: false, visible: true };
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function findSubtypeValue(
+  attributes: { attributeId: number; value: string }[],
+  definitions: Map<number, PartAttributeDefinition>,
+): string {
+  for (const definition of definitions.values()) {
+    if (normalizeAttributeCode(definition.code) !== 'subtype') {
+      continue;
+    }
+
+    const match = attributes.find((entry) => entry.attributeId === definition.attributeId);
+    if (match && typeof match.value === 'string') {
+      return match.value.trim();
+    }
+  }
+
+  return '';
+}
+
+type AttributeConstraint =
+  | { kind: 'enum'; options: string[] }
+  | { kind: 'int' }
+  | { kind: 'double' }
+  | { kind: 'text' };
+
+function parseAttributeConstraint(dataType: string | null): AttributeConstraint {
+  if (!dataType) {
+    return { kind: 'text' };
+  }
+
+  const enumMatch = dataType.match(/^enum\s*\((.*)\)$/i);
+
+  if (enumMatch) {
+    const options = Array.from(enumMatch[1].matchAll(/'([^']+)'/g)).map((match) => match[1]?.trim()).filter(Boolean) as string[];
+    return { kind: 'enum', options };
+  }
+
+  if (/^int\b/i.test(dataType)) {
+    return { kind: 'int' };
+  }
+
+  if (/^double\b/i.test(dataType)) {
+    return { kind: 'double' };
+  }
+
+  return { kind: 'text' };
+}
+
+function validateAttributeValue(definition: PartAttributeDefinition, rawValue: unknown): string {
+  const value = toSafeString(rawValue);
+
+  if (!value) {
+    return '';
+  }
+
+  const constraint = parseAttributeConstraint(definition.dataType);
+  const label = definition.code || `Attribute ${definition.attributeId}`;
+  const min = definition.minValue;
+  const max = definition.maxValue;
+
+  if (constraint.kind === 'enum') {
+    if (constraint.options.length > 0) {
+      const matches = constraint.options.some((option) => option.toLowerCase() === value.toLowerCase());
+      if (!matches) {
+        throw new Error(`"${label}" must be one of: ${constraint.options.join(', ')}`);
+      }
+    }
+
+    return value;
+  }
+
+  if (constraint.kind === 'int') {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isInteger(parsed)) {
+      throw new Error(`"${label}" must be a whole number.`);
+    }
+
+    if (min !== null && parsed < min) {
+      throw new Error(`"${label}" must be greater than or equal to ${min}.`);
+    }
+
+    if (max !== null && parsed > max) {
+      throw new Error(`"${label}" must be less than or equal to ${max}.`);
+    }
+
+    return parsed.toString();
+  }
+
+  if (constraint.kind === 'double') {
+    const parsed = Number.parseFloat(value);
+
+    if (Number.isNaN(parsed)) {
+      throw new Error(`"${label}" must be a number.`);
+    }
+
+    if (min !== null && parsed < min) {
+      throw new Error(`"${label}" must be greater than or equal to ${min}.`);
+    }
+
+    if (max !== null && parsed > max) {
+      throw new Error(`"${label}" must be less than or equal to ${max}.`);
+    }
+
+    return parsed.toString();
+  }
+
+  return value;
 }
 
 export async function searchParts(options: PartSearchOptions): Promise<PartSearchResult[]> {
@@ -306,7 +455,11 @@ export async function listPartTypes(): Promise<PartTypeDefinition[]> {
       .map((mapping) => ({
         attributeId: mapping.attribute_ID,
         code: mapping.attribute?.attribute_code ?? String(mapping.attribute_ID),
-        required: isAttributeRequired(mapping.attribute?.required_rule),
+        dataType: mapping.attribute?.data_type ?? null,
+        minValue: toNullableNumber(mapping.attribute?.min_value),
+        maxValue: toNullableNumber(mapping.attribute?.max_value),
+        unit: mapping.attribute?.unit ?? null,
+        requiredRule: mapping.attribute?.required_rule ?? null,
       })),
   }));
 }
@@ -337,11 +490,19 @@ export async function getPartDetail(partNumber: string): Promise<PartDetail | nu
     return null;
   }
 
-  const attributes = (part.part_data ?? []).map((entry) => ({
+  const attributeDetails = (part.part_data ?? []).map((entry) => ({
     attributeId: entry.attribute_ID,
     code: normalizeString(entry.attribute?.attribute_code) || String(entry.attribute_ID),
     value: normalizeString(entry.part_data),
-    required: isAttributeRequired(entry.attribute?.required_rule),
+    requiredRule: entry.attribute?.required_rule ?? null,
+  }));
+
+  const subtypeValue =
+    attributeDetails.find((attribute) => normalizeAttributeCode(attribute.code) === 'subtype')?.value ?? '';
+
+  const attributes = attributeDetails.map((entry) => ({
+    ...entry,
+    required: evaluateRequirement(entry.requiredRule, subtypeValue).required,
   }));
 
   return {
@@ -370,7 +531,11 @@ async function resolveAttributeDefinitions(partTypeId: number | undefined): Prom
     .map((mapping) => ({
       attributeId: mapping.attribute_ID,
       code: mapping.attribute?.attribute_code ?? String(mapping.attribute_ID),
-      required: isAttributeRequired(mapping.attribute?.required_rule),
+      dataType: mapping.attribute?.data_type ?? null,
+      minValue: toNullableNumber(mapping.attribute?.min_value),
+      maxValue: toNullableNumber(mapping.attribute?.max_value),
+      unit: mapping.attribute?.unit ?? null,
+      requiredRule: mapping.attribute?.required_rule ?? null,
     }));
 
   return new Map(definitions.map((entry) => [entry.attributeId, entry]));
@@ -387,27 +552,33 @@ function normalizeAttributes(
   const allowedIds = new Set(definitions.keys());
 
   return attributes
-    .map((item) => ({
-      attributeId: Number.parseInt(String(item.attributeId), 10),
-      value: toSafeString(item.value),
-    }))
-    .filter((item) => Number.isFinite(item.attributeId) && allowedIds.has(item.attributeId));
+    .map((item) => {
+      const attributeId = Number.parseInt(String(item.attributeId), 10);
+      const definition = definitions.get(attributeId);
+
+      if (!Number.isFinite(attributeId) || !allowedIds.has(attributeId) || !definition) {
+        return null;
+      }
+
+      const value = validateAttributeValue(definition, item.value);
+      return { attributeId, value };
+    })
+    .filter((item): item is { attributeId: number; value: string } => Boolean(item));
 }
 
 function assertRequiredAttributes(
   attributes: { attributeId: number; value: string }[],
   definitions: Map<number, PartAttributeDefinition>,
 ): void {
+  const subtypeValue = findSubtypeValue(attributes, definitions);
   const missingRequired: string[] = [];
 
   for (const definition of definitions.values()) {
-    if (!definition.required) {
-      continue;
-    }
+    const requirement = evaluateRequirement(definition.requiredRule, subtypeValue);
+    if (!requirement.required) continue;
 
     const match = attributes.find((entry) => entry.attributeId === definition.attributeId);
-
-    if (!match || match.value.length === 0) {
+    if (!match || match.value.trim().length === 0) {
       missingRequired.push(definition.code);
     }
   }

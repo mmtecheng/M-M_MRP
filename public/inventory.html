@@ -197,23 +197,35 @@
             </div>
             <form class="modal__form" data-part-form novalidate>
               <div class="modal__form-grid">
-                <label class="modal__label" for="part-number-input">Part Number</label>
-                <input id="part-number-input" name="partNumber" type="text" data-part-number required />
+                <div class="modal__field">
+                  <label class="modal__label" for="part-number-input">Part Number</label>
+                  <input id="part-number-input" name="partNumber" type="text" data-part-number required />
+                </div>
 
-                <label class="modal__label" for="part-description-input">Description</label>
-                <input id="part-description-input" name="description" type="text" data-part-description />
+                <div class="modal__field">
+                  <label class="modal__label" for="part-description-input">Description</label>
+                  <input id="part-description-input" name="description" type="text" data-part-description />
+                </div>
 
-                <label class="modal__label" for="part-revision-input">Revision</label>
-                <input id="part-revision-input" name="revision" type="text" data-part-revision />
+                <div class="modal__field">
+                  <label class="modal__label" for="part-revision-input">Revision</label>
+                  <input id="part-revision-input" name="revision" type="text" data-part-revision />
+                </div>
 
-                <label class="modal__label" for="part-stockuom-input">Stock UOM</label>
-                <input id="part-stockuom-input" name="stockUom" type="text" data-part-stockuom />
+                <div class="modal__field">
+                  <label class="modal__label" for="part-stockuom-input">Stock UOM</label>
+                  <input id="part-stockuom-input" name="stockUom" type="text" data-part-stockuom />
+                </div>
 
-                <label class="modal__label" for="part-status-input">Status</label>
-                <input id="part-status-input" name="status" type="text" data-part-status />
+                <div class="modal__field">
+                  <label class="modal__label" for="part-type-select">Part Type</label>
+                  <select id="part-type-select" name="partType" data-part-type required></select>
+                </div>
 
-                <label class="modal__label" for="part-type-select">Part Type</label>
-                <select id="part-type-select" name="partType" data-part-type required></select>
+                <div class="modal__field">
+                  <label class="modal__label" for="part-status-input">Status</label>
+                  <input id="part-status-input" name="status" type="text" data-part-status />
+                </div>
               </div>
 
               <div class="modal__section" data-part-attribute-section hidden>

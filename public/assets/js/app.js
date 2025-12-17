@@ -1085,6 +1085,7 @@ function initPartEditor() {
     partTypesLoaded: false,
     currentPart: null,
     mode: 'view',
+    attributeValues: new Map(),
   };
 
   const setFeedback = (message, tone = 'info') => {
@@ -1100,6 +1101,97 @@ function initPartEditor() {
   const toNumber = (value) => {
     const parsed = Number.parseInt(String(value), 10);
     return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  const normalizeAttributeCode = (code) => String(code ?? '').toLowerCase().replace(/_\d+$/, '');
+
+  const formatAttributeLabel = (attribute) => {
+    if (!attribute) return 'Attribute';
+    const baseLabel = attribute.code ?? `Attribute ${attribute.attributeId}`;
+    if (normalizeAttributeCode(baseLabel) === 'subtype') {
+      return baseLabel.replace(/_\d+$/, '');
+    }
+    return baseLabel;
+  };
+
+  const parseAttributeDataType = (dataType) => {
+    if (!dataType) {
+      return { kind: 'text', options: [] };
+    }
+
+    const enumMatch = dataType.match(/^enum\s*\((.*)\)$/i);
+    if (enumMatch) {
+      const options = Array.from(enumMatch[1].matchAll(/'([^']+)'/g))
+        .map((match) => match[1]?.trim())
+        .filter(Boolean);
+      return { kind: 'enum', options };
+    }
+
+    if (/^int\b/i.test(dataType)) {
+      return { kind: 'int', options: [] };
+    }
+
+    if (/^double\b/i.test(dataType)) {
+      return { kind: 'double', options: [] };
+    }
+
+    return { kind: 'text', options: [] };
+  };
+
+  const resolveRequirementState = (requiredRule, subtypeValue) => {
+    const normalizedRule = typeof requiredRule === 'string' ? requiredRule.trim().toLowerCase() : '';
+    if (!normalizedRule) {
+      return { required: false, visible: true };
+    }
+
+    if (normalizedRule === 'yes') {
+      return { required: true, visible: true };
+    }
+
+    if (normalizedRule === 'no') {
+      return { required: false, visible: true };
+    }
+
+    const matches = Array.from(normalizedRule.matchAll(/'([^']+)'/g)).map((match) => match[1]?.trim().toLowerCase());
+    const normalizedSubtype = (subtypeValue ?? '').trim().toLowerCase();
+
+    if (matches.length > 0 && normalizedSubtype) {
+      const matchFound = matches.some((entry) => entry === normalizedSubtype);
+      return { required: matchFound, visible: matchFound };
+    }
+
+    return { required: false, visible: true };
+  };
+
+  const isSubtypeAttribute = (attribute) => normalizeAttributeCode(attribute?.code) === 'subtype';
+
+  const isSubtypeComplete = (attribute, value) => {
+    if (!attribute) return true;
+    const trimmed = (value ?? '').trim();
+    if (!trimmed) return false;
+
+    const { kind, options } = parseAttributeDataType(attribute.dataType);
+    if (kind === 'enum') {
+      return options.length === 0 || options.some((option) => option.toLowerCase() === trimmed.toLowerCase());
+    }
+
+    if (kind === 'int') {
+      const parsed = Number.parseInt(trimmed, 10);
+      if (Number.isNaN(parsed)) return false;
+      if (typeof attribute.minValue === 'number' && parsed < attribute.minValue) return false;
+      if (typeof attribute.maxValue === 'number' && parsed > attribute.maxValue) return false;
+      return true;
+    }
+
+    if (kind === 'double') {
+      const parsed = Number.parseFloat(trimmed);
+      if (Number.isNaN(parsed)) return false;
+      if (typeof attribute.minValue === 'number' && parsed < attribute.minValue) return false;
+      if (typeof attribute.maxValue === 'number' && parsed > attribute.maxValue) return false;
+      return true;
+    }
+
+    return true;
   };
 
   const loadPartTypes = async () => {
@@ -1134,48 +1226,136 @@ function initPartEditor() {
     state.partTypes.forEach((entry) => {
       const option = document.createElement('option');
       option.value = String(entry.id);
-      option.textContent = `${entry.code} (${entry.sheetName})`;
+      option.textContent = entry.sheetName || entry.code;
       option.selected = typeof selectedId === 'number' && entry.id === selectedId;
       partTypeSelect.appendChild(option);
     });
   };
 
-  const renderAttributes = (partTypeId, values = new Map()) => {
+  const renderAttributes = (partTypeId, values = state.attributeValues) => {
     attributeContainer.innerHTML = '';
     const partType = state.partTypes.find((entry) => entry.id === partTypeId);
 
     if (!partType || !Array.isArray(partType.attributes) || partType.attributes.length === 0) {
+      state.attributeValues = new Map();
       attributeSection.hidden = true;
       return;
     }
 
-    partType.attributes.forEach((attribute) => {
+    attributeSection.hidden = false;
+
+    const attributeValues = values instanceof Map ? new Map(values) : new Map();
+    state.attributeValues = attributeValues;
+
+    const buildAttributeField = (attribute, required) => {
+      const field = document.createElement('div');
+      field.className = 'modal__field';
       const label = document.createElement('label');
       label.className = 'modal__label';
       const labelId = `attribute-${attribute.attributeId}`;
       label.htmlFor = labelId;
-      label.textContent = attribute.code;
+      label.textContent = formatAttributeLabel(attribute);
 
-      if (attribute.required) {
+      if (required) {
         const requiredMark = document.createElement('span');
         requiredMark.className = 'field-required';
         requiredMark.textContent = ' *';
         label.appendChild(requiredMark);
       }
 
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.id = labelId;
-      input.dataset.attributeId = String(attribute.attributeId);
-      input.dataset.partAttributeInput = '';
-      input.required = Boolean(attribute.required);
-      input.value = values.get(attribute.attributeId) ?? '';
+      const { kind, options } = parseAttributeDataType(attribute.dataType);
+      let control;
 
-      attributeContainer.appendChild(label);
-      attributeContainer.appendChild(input);
-    });
+      if (kind === 'enum') {
+        control = document.createElement('select');
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = `Select ${formatAttributeLabel(attribute)}`;
+        control.appendChild(placeholder);
+        options.forEach((option) => {
+          const opt = document.createElement('option');
+          opt.value = option;
+          opt.textContent = option;
+          control.appendChild(opt);
+        });
+        control.value = attributeValues.get(attribute.attributeId) ?? '';
+      } else {
+        control = document.createElement('input');
+        control.type = kind === 'int' || kind === 'double' ? 'number' : 'text';
+        control.inputMode = kind === 'int' ? 'numeric' : kind === 'double' ? 'decimal' : 'text';
+        if (kind === 'int') {
+          control.step = '1';
+        } else if (kind === 'double') {
+          control.step = 'any';
+        }
+        if (typeof attribute.minValue === 'number') {
+          control.min = String(attribute.minValue);
+        }
+        if (typeof attribute.maxValue === 'number') {
+          control.max = String(attribute.maxValue);
+        }
+        control.value = attributeValues.get(attribute.attributeId) ?? '';
+      }
 
-    attributeSection.hidden = false;
+      control.id = labelId;
+      control.dataset.attributeId = String(attribute.attributeId);
+      control.dataset.partAttributeInput = 'true';
+      control.required = Boolean(required);
+
+      const handleChange = () => {
+        attributeValues.set(attribute.attributeId, control.value);
+        state.attributeValues = attributeValues;
+        if (isSubtypeAttribute(attribute)) {
+          renderAttributes(partTypeId, attributeValues);
+        }
+      };
+
+      control.addEventListener('input', handleChange);
+      control.addEventListener('change', handleChange);
+
+      field.appendChild(label);
+
+      if ((kind === 'int' || kind === 'double') && attribute.unit) {
+        const inputRow = document.createElement('div');
+        inputRow.className = 'modal__input-with-unit';
+        inputRow.appendChild(control);
+
+        const unitLabel = document.createElement('span');
+        unitLabel.className = 'modal__unit-label';
+        unitLabel.textContent = attribute.unit;
+        inputRow.appendChild(unitLabel);
+        field.appendChild(inputRow);
+      } else {
+        field.appendChild(control);
+      }
+
+      attributeContainer.appendChild(field);
+    };
+
+    const subtypeAttribute = partType.attributes.find((attribute) => isSubtypeAttribute(attribute));
+    const subtypeValue = subtypeAttribute ? attributeValues.get(subtypeAttribute.attributeId) ?? '' : '';
+    const subtypeReady = isSubtypeComplete(subtypeAttribute, subtypeValue);
+
+    if (subtypeAttribute) {
+      buildAttributeField(subtypeAttribute, true);
+    }
+
+    if (!subtypeReady && subtypeAttribute) {
+      attributeSection.hidden = false;
+      return;
+    }
+
+    partType.attributes
+      .filter((attribute) => !subtypeAttribute || attribute.attributeId !== subtypeAttribute.attributeId)
+      .forEach((attribute) => {
+        const { required, visible } = resolveRequirementState(attribute.requiredRule, subtypeValue);
+        if (!visible) {
+          return;
+        }
+        buildAttributeField(attribute, required);
+      });
+
+    attributeSection.hidden = attributeContainer.children.length === 0;
   };
 
   const setMode = (mode) => {
@@ -1190,7 +1370,7 @@ function initPartEditor() {
     statusInput.disabled = !isEdit;
     partTypeSelect.disabled = !isEdit;
 
-    const attributeInputs = attributeContainer.querySelectorAll('[data-part-attribute-input], [data-part-attribute-input] input');
+    const attributeInputs = attributeContainer.querySelectorAll('[data-part-attribute-input]');
     attributeInputs.forEach((input) => {
       input.disabled = !isEdit;
     });
@@ -1205,6 +1385,7 @@ function initPartEditor() {
     setFeedback('');
     state.currentPart = null;
     state.mode = 'create';
+    state.attributeValues = new Map();
     renderPartTypeOptions();
     renderAttributes(null);
     if (modalTitle) {
@@ -1221,7 +1402,7 @@ function initPartEditor() {
 
   const getAttributeValues = () => {
     const values = [];
-    const inputs = attributeContainer.querySelectorAll('input[data-part-attribute-input], input[data-attribute-id], input[data-part-attribute-input=""]');
+    const inputs = attributeContainer.querySelectorAll('[data-part-attribute-input]');
 
     inputs.forEach((input) => {
       const attributeId = toNumber(input.dataset.attributeId);
@@ -1241,6 +1422,8 @@ function initPartEditor() {
         attributeMap.set(entry.attributeId, entry.value ?? '');
       });
     }
+
+    state.attributeValues = attributeMap;
 
     partNumberInput.value = detail?.partNumber ?? '';
     descriptionInput.value = detail?.description ?? '';
@@ -1385,16 +1568,9 @@ function initPartEditor() {
   });
 
   partTypeSelect.addEventListener('change', () => {
-    const existingValues = new Map();
-    attributeContainer.querySelectorAll('input[data-part-attribute-input]').forEach((input) => {
-      const attributeId = toNumber(input.dataset.attributeId);
-      if (attributeId !== null) {
-        existingValues.set(attributeId, input.value);
-      }
-    });
-
     const selectedId = toNumber(partTypeSelect.value);
-    renderAttributes(selectedId, existingValues);
+    state.attributeValues = new Map();
+    renderAttributes(selectedId, state.attributeValues);
 
     if (typeWarning) {
       typeWarning.hidden = selectedId !== null;
