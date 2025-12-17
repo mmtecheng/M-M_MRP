@@ -11,6 +11,7 @@ export type PartSearchResult = {
   location: string;
   stockUom: string;
   status: string;
+  hasBom: boolean;
 };
 
 export type PartAttributeDefinition = {
@@ -133,6 +134,11 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
     record['available_quantity'] ??
     record['availablequantity'];
   const availableQuantity = Math.max(0, asNumber(availableQuantityRaw));
+  const hasBom =
+    record['hasBom'] === true ||
+    record['hasBom'] === 1 ||
+    record['hasBom'] === '1' ||
+    record['hasBom'] === 'true';
 
   return {
     partNumber,
@@ -142,6 +148,7 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
     location: locationLabel.length > 0 ? locationLabel : locationCode,
     stockUom,
     status,
+    hasBom,
   };
 }
 
@@ -233,6 +240,7 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
       pm.ISC,
       pm.LocationCode,
       sl.LocationDescription,
+      EXISTS (SELECT 1 FROM bom b WHERE b.Assembly = pm.PartNumber LIMIT 1) AS hasBom,
       GREATEST(COALESCE(il.quantityOnHand, 0) - COALESCE(it.quantityAllocated, 0), 0) AS availableQuantity
     FROM partmaster pm
     LEFT JOIN (

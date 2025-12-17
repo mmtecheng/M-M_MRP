@@ -238,6 +238,7 @@ function initInventorySearch() {
             detail: {
               partNumber: part.partNumber,
               description: part.description,
+              hasBom: Boolean(part.hasBom),
             },
           }),
         );
@@ -1077,6 +1078,8 @@ function initPartEditor() {
     return;
   }
 
+  partTypeSelect.required = true;
+
   const state = {
     partTypes: [],
     partTypesLoaded: false,
@@ -1255,18 +1258,24 @@ function initPartEditor() {
       modalSubtitle.textContent = detail?.description ?? '';
     }
 
+    const hasPartType = Boolean(detail?.partTypeId);
+
     if (typeWarning) {
-      typeWarning.hidden = Boolean(detail?.partTypeId);
+      typeWarning.hidden = hasPartType;
     }
 
-    if (detail?.partTypeId) {
+    if (hasPartType) {
       setMode('view');
+      setFeedback('');
     } else {
       setMode('edit');
+      setFeedback('A Part Type is required. Please select one to continue.', 'warning');
+      window.requestAnimationFrame(() => {
+        partTypeSelect.focus();
+      });
     }
 
     state.currentPart = detail ?? null;
-    setFeedback('');
   };
 
   const closeModal = () => {
@@ -1325,6 +1334,12 @@ function initPartEditor() {
       return;
     }
 
+    if (partTypeId === null) {
+      setFeedback('Part Type is required.', 'error');
+      partTypeSelect.focus();
+      return;
+    }
+
     setFeedback('Saving…');
 
     const isCreate = state.mode === 'create';
@@ -1380,6 +1395,14 @@ function initPartEditor() {
 
     const selectedId = toNumber(partTypeSelect.value);
     renderAttributes(selectedId, existingValues);
+
+    if (typeWarning) {
+      typeWarning.hidden = selectedId !== null;
+    }
+
+    if (selectedId !== null) {
+      setFeedback('');
+    }
   });
 
   editButton.addEventListener('click', () => {
@@ -1405,6 +1428,10 @@ function initPartEditor() {
 
   document.addEventListener('inventory:part-selected', (event) => {
     const detail = event.detail;
+    if (detail?.hasBom) {
+      return;
+    }
+
     if (detail?.partNumber) {
       void openForPart(detail.partNumber);
     }
