@@ -698,6 +698,28 @@ a:focus {
   gap: 0.5rem;
 }
 
+.modal__form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.modal__field input,
+.modal__field select {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-300);
+  font-size: 0.95rem;
+  background-color: #fff;
+}
+
 .modal__label {
   font-weight: 600;
   color: var(--gray-600);
@@ -715,6 +737,18 @@ a:focus {
   border-radius: var(--radius-sm);
   border: 1px solid var(--gray-300);
   font-size: 0.95rem;
+}
+
+.modal__input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.modal__unit-label {
+  color: var(--gray-600);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .modal__results .table-wrapper {
