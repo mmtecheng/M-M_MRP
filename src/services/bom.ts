@@ -120,56 +120,119 @@ export async function getBillOfMaterials(options: BomQueryOptions = {}): Promise
     assembly: sanitizedAssembly || undefined,
   });
 
-  const whereClause =
-    sanitizedAssembly.length > 0 ? Prisma.sql`WHERE b.Assembly = ${sanitizedAssembly}` : Prisma.sql``;
+  const bomRows = await prisma.bom.findMany({
+    where: sanitizedAssembly.length > 0 ? { Assembly: sanitizedAssembly } : undefined,
+    include: {
+      assembly_partmaster: { select: { DescText: true } },
+      partmaster_bom_ComponentTopartmaster: { select: { DescText: true, LocationCode: true } },
+    },
+    take: safeLimit,
+  });
 
-  const records = (await prisma.$queryRaw<RawBomRecord[]>`
-    SELECT
-      b.Assembly,
-      asm.DescText   AS AssemblyDescription,
-      b.Component,
-      comp.DescText  AS ComponentDescription,
-      b.ItemSequence,
-      b.QuantityPer,
-      b.EffectiveDate,
-      b.ObsoleteDate,
-      b.Notes,
-      comp.LocationCode AS ComponentLocationCode,
-      sl.LocationDescription AS ComponentLocationDescription,
-      GREATEST(COALESCE(il.quantityOnHand, 0) - COALESCE(it.quantityAllocated, 0), 0) AS AvailableQuantity
-    FROM bom b
-    LEFT JOIN partmaster asm
-      ON asm.PartNumber = b.Assembly
-    LEFT JOIN partmaster comp
-      ON comp.PartNumber = b.Component
-    LEFT JOIN (
-      SELECT PartNumber, SUM(Quantity) AS quantityOnHand
-      FROM inventorylots
-      GROUP BY PartNumber
-    ) il
-      ON il.PartNumber = b.Component
-    LEFT JOIN (
-      SELECT PartNumber, SUM(InventoryQuantity) AS quantityAllocated
-      FROM inventorytags
-      WHERE InventoryQuantity IS NOT NULL
-      GROUP BY PartNumber
-    ) it
-      ON it.PartNumber = b.Component
-    LEFT JOIN (
-      SELECT LocationCode, MAX(NULLIF(TRIM(DescText), '')) AS LocationDescription
-      FROM stocklocations
-      GROUP BY LocationCode
-    ) sl
-      ON sl.LocationCode = comp.LocationCode
-    ${whereClause}
-    ORDER BY b.Assembly ASC,
-      CASE
-        WHEN b.ItemSequence REGEXP '^[0-9]+$' THEN CAST(b.ItemSequence AS UNSIGNED)
-        ELSE 999999
-      END,
-      b.Component ASC
-    LIMIT ${safeLimit}
-  `);
+  const componentPartNumbers = Array.from(
+    new Set(
+      bomRows
+        .map((entry) => normalize(entry.Component).trim())
+        .filter((component) => component.length > 0),
+    ),
+  );
 
-  return records.map(mapRecord);
+  const componentLocations = Array.from(
+    new Set(
+      bomRows
+        .map((entry) => normalize(entry.partmaster_bom_ComponentTopartmaster?.LocationCode).trim())
+        .filter((location) => location.length > 0),
+    ),
+  );
+
+  const [onHand, allocated, locations] = await Promise.all([
+    componentPartNumbers.length
+      ? prisma.inventorylots.groupBy({
+          by: ['PartNumber'],
+          where: { PartNumber: { in: componentPartNumbers } },
+          _sum: { Quantity: true },
+        })
+      : Promise.resolve([]),
+    componentPartNumbers.length
+      ? prisma.inventorytags.groupBy({
+          by: ['PartNumber'],
+          where: { PartNumber: { in: componentPartNumbers }, InventoryQuantity: { not: null } },
+          _sum: { InventoryQuantity: true },
+        })
+      : Promise.resolve([]),
+    componentLocations.length
+      ? prisma.stocklocations.findMany({
+          where: { LocationCode: { in: componentLocations } },
+          select: { LocationCode: true, DescText: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const onHandMap = new Map<string, number>();
+  onHand.forEach((entry) => {
+    const quantity = coerceNumber(entry._sum?.Quantity);
+    const partNumber = normalize(entry.PartNumber).trim();
+
+    if (typeof quantity === 'number' && partNumber.length > 0) {
+      onHandMap.set(partNumber, quantity);
+    }
+  });
+
+  const allocatedMap = new Map<string, number>();
+  allocated.forEach((entry) => {
+    const quantity = coerceNumber(entry._sum?.InventoryQuantity);
+    const partNumber = normalize(entry.PartNumber).trim();
+
+    if (typeof quantity === 'number' && partNumber.length > 0) {
+      allocatedMap.set(partNumber, quantity);
+    }
+  });
+
+  const locationMap = new Map<string, string>();
+  locations.forEach((entry) => {
+    const description = normalize(entry.DescText).trim();
+    if (description.length > 0) {
+      locationMap.set(entry.LocationCode, description);
+    }
+  });
+
+  const sortedRows = [...bomRows].sort((a, b) => {
+    const assemblyComparison = normalize(a.Assembly).localeCompare(normalize(b.Assembly));
+    if (assemblyComparison !== 0) {
+      return assemblyComparison;
+    }
+
+    const seqA = coerceNumber(a.ItemSequence);
+    const seqB = coerceNumber(b.ItemSequence);
+
+    if (seqA !== null && seqB !== null && seqA !== seqB) {
+      return seqA - seqB;
+    }
+
+    return normalize(a.Component).localeCompare(normalize(b.Component));
+  });
+
+  return sortedRows.map((record) => {
+    const component = normalize(record.Component).trim();
+    const onHandQuantity = onHandMap.get(component) ?? 0;
+    const allocatedQuantity = allocatedMap.get(component) ?? 0;
+    const availableQuantity = Math.max(onHandQuantity - allocatedQuantity, 0);
+    const locationCode = normalize(record.partmaster_bom_ComponentTopartmaster?.LocationCode).trim();
+    const locationDescription = locationCode.length > 0 ? locationMap.get(locationCode) ?? '' : '';
+
+    return mapRecord({
+      Assembly: record.Assembly,
+      AssemblyDescription: record.assembly_partmaster?.DescText ?? null,
+      Component: record.Component,
+      ComponentDescription: record.partmaster_bom_ComponentTopartmaster?.DescText ?? null,
+      ItemSequence: record.ItemSequence ?? null,
+      QuantityPer: record.QuantityPer ?? null,
+      EffectiveDate: record.EffectiveDate ?? null,
+      ObsoleteDate: record.ObsoleteDate ?? null,
+      Notes: record.Notes ?? null,
+      ComponentLocationCode: locationCode || null,
+      ComponentLocationDescription: locationDescription || null,
+      AvailableQuantity: availableQuantity,
+    });
+  });
 }
