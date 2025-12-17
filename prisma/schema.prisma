@@ -27,7 +27,7 @@ model audit {
 
 model bom {
   Assembly                             String           @db.VarChar(30)
-  Component                            String           @db.VarChar(30)
+  Component                            String           @db.VarChar(30) @unique(map: "uniq_BOM_Component")
   ItemSequence                         String?          @db.VarChar(10)
   QuantityPer                          Float?           @default(0)
   EffectiveDate                        DateTime?        @db.DateTime(0)
@@ -35,9 +35,9 @@ model bom {
   BOMUOMCode                           String?          @db.VarChar(50)
   Notes                                String?          @db.Text
   BOM_PKey                             Int              @unique(map: "uniq_BOM_BOM_PKey") @default(autoincrement())
-  bom                                  bom              @relation("bomTobom", fields: [Assembly], references: [Component], onDelete: NoAction, onUpdate: NoAction, map: "fk_BOM_BOM_000")
+  parent_bom                           bom              @relation("bomTobom", fields: [Assembly], references: [Component], onDelete: NoAction, onUpdate: NoAction, map: "fk_BOM_BOM_000_parent")
   other_bom                            bom[]            @relation("bomTobom")
-  bom                                  partmaster       @relation("bomTobom", fields: [Assembly], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_BOM_BOM_000")
+  assembly_partmaster                  partmaster       @relation("bomAssemblyToPartmaster", fields: [Assembly], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_BOM_BOM_000_assembly")
   partmaster_bom_ComponentTopartmaster partmaster       @relation("bom_ComponentTopartmaster", fields: [Component], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_BOM_PartMaster_091")
   uomcodes                             uomcodes?        @relation(fields: [BOMUOMCode], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_BOM_UOMCodes_177")
   refdesignators                       refdesignators[]
@@ -148,6 +148,7 @@ model creditmemodetail {
   sodetail                                        sodetail?
 
   @@id([CreditMemoNumber, CreditMemoLine])
+  @@unique([SONumber, SOLine], map: "uniq_CreditMemoDetail_SONumber_SOLine")
   @@index([PartNumber], map: "fk_CreditMemoDetail_PartMaster_092")
   @@index([TaxCode2], map: "fk_CreditMemoDetail_TaxCodes_155")
   @@index([TaxCode3], map: "fk_CreditMemoDetail_TaxCodes_156")
@@ -204,15 +205,16 @@ model crpdetail {
   StopDateTime     DateTime?          @db.DateTime(0)
   SummaryDate      DateTime?          @db.DateTime(0)
   CRPDetail_PKey   Int                @id @default(autoincrement())
-  crpheader        crpheader?         @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_CRPHeader_009")
-  crpsummary       crpsummary?        @relation(fields: [WorkCenterID, SummaryDate], references: [WorkCenterID, StartDate], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_CRPSummary_012")
+  crpheader        crpheader?         @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_CRPHeader_009_header")
+  crpsummary       crpsummary?        @relation(fields: [WorkCenterID, SummaryDate], references: [WorkCenterID, StartDate], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_CRPSummary_012_detail")
   partmaster       partmaster?        @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_PartMaster_093")
   routers          routers?           @relation(fields: [PartNumber, SequenceID], references: [PartNumber, SequenceID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_Routers_133")
   woheader         woheader?          @relation(fields: [WONumber], references: [WONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_WOHeader_187")
-  crpheader        workcenters?       @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_CRPHeader_009")
+  workcenter       workcenters?       @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPDetail_CRPHeader_009_workcenter")
   workcentershifts workcentershifts[]
 
   @@index([WorkCenterID, SummaryDate], map: "fk_CRPDetail_CRPSummary_012")
+  @@unique([ShiftID], map: "uniq_CRPDetail_ShiftID")
   @@index([PartNumber, SequenceID], map: "fk_CRPDetail_Routers_133")
   @@index([WONumber], map: "fk_CRPDetail_WOHeader_187")
   @@index([ShiftID], map: "ix_par_CRPDetail_ShiftID")
@@ -220,7 +222,7 @@ model crpdetail {
 }
 
 model crpheader {
-  WorkCenterID   String?      @db.VarChar(10)
+  WorkCenterID   String?      @unique(map: "uniq_CRPHeader_WorkCenterID") @db.VarChar(10)
   LaborScheduled Boolean?
   OverCapacity   Boolean?
   CRPHeader_PKey Int          @id @default(autoincrement())
@@ -241,9 +243,10 @@ model crpsummary {
   Capacity        Float?
   CRPSummary_PKey Int          @id @default(autoincrement())
   crpdetail       crpdetail[]
-  crpheader       crpheader?   @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPSummary_CRPHeader_010")
-  crpheader       workcenters? @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPSummary_CRPHeader_010")
+  crpheader       crpheader?   @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPSummary_CRPHeader_010_header")
+  workcenter      workcenters? @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_CRPSummary_CRPHeader_010_workcenter")
 
+  @@unique([WorkCenterID, StartDate], map: "uniq_CRPSummary_WorkCenterID_StartDate")
   @@index([WorkCenterID, StartDate], map: "ix_par_CRPSummary_WorkCenterID_StartDate")
   @@index([WorkCenterID, StartDate], map: "ix_par_fk_CRPDetail_CRPSummary_CRPSummaryCRPDetail_WorkCenterID_")
 }
@@ -625,6 +628,7 @@ model intrastatrates {
   taxcodes            taxcodes?       @relation(fields: [TaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_IntrastatRates_TaxCodes_159")
 
   @@id([ICNCode, RegionCode])
+  @@unique([RegionCode, ICNCode], map: "uniq_IntrastatRates_RegionCode_ICNCode")
   @@index([RegionCode, ICNCode], map: "fk_IntrastatRates_IntrastatReport_066")
   @@index([TaxCode], map: "fk_IntrastatRates_TaxCodes_159")
 }
@@ -644,6 +648,7 @@ model intrastatreport {
   IntrastatReport_PKey Int             @unique(map: "uniq_IntrastatReport_IntrastatReport_PKey") @default(autoincrement())
   intrastatrates       intrastatrates?
 
+  @@unique([RegionCode, ICNCode], map: "uniq_IntrastatReport_RegionCode_ICNCode")
   @@index([RegionCode, ICNCode], map: "ix_par_IntrastatReport_RegionCode_ICNCode")
 }
 
@@ -664,6 +669,8 @@ model inventorylots {
   stocklocations     stocklocations?
 
   @@id([PartNumber, DepartmentCode, LocationCode, SNLotNumber, JobNumber])
+  @@unique([DepartmentCode, LocationCode], map: "uniq_InventoryLots_Department_Location")
+  @@unique([PartNumber, SNLotNumber], map: "uniq_InventoryLots_PartNumber_SNLotNumber")
   @@index([JobNumber], map: "fk_InventoryLots_JobMaster_078")
   @@index([DepartmentCode, LocationCode], map: "ix_par_InventoryLots_DepartmentCode_LocationCode")
   @@index([PartNumber, SNLotNumber], map: "ix_par_InventoryLots_PartNumber_SNLotNumber")
@@ -691,6 +698,8 @@ model inventorytags {
   seriallotnumbers                              seriallotnumbers?
   stocklocations                                stocklocations?
 
+  @@unique([DepartmentCode, LocationCode], map: "uniq_InventoryTags_Department_Location")
+  @@unique([PartNumber, SNLotNumber], map: "uniq_InventoryTags_PartNumber_SNLotNumber")
   @@index([EnteredBy], map: "fk_InventoryTags_Employees_048")
   @@index([EmployeeID], map: "fk_InventoryTags_Employees_049")
   @@index([JobNumber], map: "fk_InventoryTags_JobMaster_079")
@@ -727,6 +736,7 @@ model invoicedetail {
   transactiondetail                            transactiondetail[]
 
   @@id([InvoiceNumber, InvoiceLine])
+  @@unique([SONumber, SOLine], map: "uniq_InvoiceDetail_SONumber_SOLine")
   @@index([PartNumber], map: "fk_InvoiceDetail_PartMaster_097")
   @@index([BaseTaxCode], map: "fk_InvoiceDetail_TaxCodes_160")
   @@index([TaxCode3], map: "fk_InvoiceDetail_TaxCodes_161")
@@ -824,6 +834,7 @@ model mrpjobs {
   mrpplanning  mrpplanning[]
 
   @@index([JobNumber], map: "fk_MRPJobs_JobMaster_080")
+  @@unique([MRPHeaderID, MRPJobID], map: "uniq_MRPJobs_MRPHeaderID_MRPJobID")
   @@index([MRPHeaderID, MRPJobID], map: "ix_par_MRPJobs_MRPHeaderID_MRPJobID")
 }
 
@@ -842,6 +853,8 @@ model mrpparts {
   MRPParts_PKey Int         @id @default(autoincrement())
   mrpjobs       mrpjobs[]
   partmaster    partmaster? @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPParts_PartMaster_098")
+
+  @@unique([MRPHeaderID], map: "uniq_MRPParts_MRPHeaderID")
 
   @@index([PartNumber], map: "fk_MRPParts_PartMaster_098")
   @@index([MRPHeaderID], map: "ix_par_MRPParts_MRPHeaderID")
@@ -868,13 +881,14 @@ model mrpplanning {
   BalanceSortOrder Int?      @default(0)
   MRPPlanningID    Int       @id @default(autoincrement())
   mrpjobs          mrpjobs?  @relation(fields: [MRPHeaderID, MRPJobID], references: [MRPHeaderID, MRPJobID], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_MRPJobs_088")
-  poheader         poheader? @relation(fields: [Reference], references: [PONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_POHeader_112")
-  poheader         soheader? @relation(fields: [Reference], references: [SONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_POHeader_112")
-  poheader         woheader? @relation(fields: [Reference], references: [WONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_POHeader_112")
+  po_reference     poheader? @relation(fields: [Reference], references: [PONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_POHeader_112_po")
+  so_reference     soheader? @relation(fields: [Reference], references: [SONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_SOHeader_112_so")
+  wo_reference     woheader? @relation(fields: [Reference], references: [WONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_MRPPlanning_WOHeader_112_wo")
   podetail         podetail?
   sodetail         sodetail?
 
   @@index([MRPHeaderID, MRPJobID], map: "fk_MRPPlanning_MRPJobs_088")
+  @@unique([Reference, ReferenceLine], map: "uniq_MRPPlanning_Reference_ReferenceLine")
   @@index([Reference, ReferenceLine], map: "ix_par_MRPPlanning_Reference_ReferenceLine")
 }
 
@@ -977,7 +991,7 @@ model partmaster {
   Cost                                                       Float?
   PartMaster_PKey                                            Int                  @unique(map: "uniq_PartMaster_PartMaster_PKey") @default(autoincrement())
   part_type_ID                                               Int?                 @db.UnsignedTinyInt
-  other_bom                                                  bom[]                @relation("bomTobom")
+  bom_assembly_partmaster                                    bom[]                @relation("bomAssemblyToPartmaster")
   bom_bom_ComponentTopartmaster                              bom[]                @relation("bom_ComponentTopartmaster")
   creditmemodetail                                           creditmemodetail[]
   crpdetail                                                  crpdetail[]
@@ -1014,6 +1028,7 @@ model partmaster {
   wipissues                                                  wipissues[]
   woheader                                                   woheader[]
 
+  @@unique([LocationCode], map: "uniq_PartMaster_LocationCode")
   @@index([CommodityCode], map: "fk_PartMaster_CommodityCodes_003")
   @@index([DensityCode], map: "fk_PartMaster_DensityCodes_027")
   @@index([DepartmentCode], map: "fk_PartMaster_DepartmentCodes_030")
@@ -1045,9 +1060,9 @@ model partxreference {
   UserDefined1        String?                @db.VarChar(10)
   UserDefined2        String?                @db.VarChar(10)
   PartXReference_PKey Int                    @unique(map: "uniq_PartXReference_PartXReference_PKey") @default(autoincrement())
-  podetail            podetail               @relation(fields: [PartNumber, PartXReference], references: [PartNumber, PartXReference], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartXReference_PODetail_111")
+  podetail            podetail               @relation(fields: [PartNumber, PartXReference], references: [PartNumber, PartXReference], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartXReference_PODetail_111_po")
   partmaster          partmaster             @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartXReference_PartMaster_100")
-  podetail            sodetail               @relation(fields: [PartNumber, PartXReference], references: [PartNumber, PartXReference], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartXReference_PODetail_111")
+  sodetail            sodetail               @relation(fields: [PartNumber, PartXReference], references: [PartNumber, PartXReference], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartXReference_SODetail_111_so")
   suppliers           suppliers              @relation(fields: [SupplierID], references: [SupplierID], onDelete: NoAction, onUpdate: NoAction, map: "fk_PartXReference_Suppliers_151")
 
   @@id([PartNumber, PartXReference, SupplierID])
@@ -1076,6 +1091,7 @@ model pipissues {
   podetail         podetail?
 
   @@id([PONumber, POLine, IssueID])
+  @@unique([PONumber, POLine], map: "uniq_PIPIssues_PONumber_POLine")
   @@index([PartNumber, SNLotNumber], map: "fk_PIPIssues_SerialLotNumbers_135")
   @@index([UOMCode], map: "fk_PIPIssues_UOMCodes_183")
   @@index([PONumber, POLine], map: "ix_par_PIPIssues_PONumber_POLine")
@@ -1114,10 +1130,10 @@ model podetail {
   partxreference                          partxreference[]
   departmentcodes                         departmentcodes? @relation(fields: [DepartmentCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_DepartmentCodes_033")
   jobmaster                               jobmaster?       @relation(fields: [JobNumber], references: [JobNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_JobMaster_082")
-  mrpplanning                             mrpplanning      @relation(fields: [PONumber, POLine], references: [Reference, ReferenceLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_MRPPlanning_085")
-  mrpplanning                             pipissues        @relation(fields: [PONumber, POLine], references: [PONumber, POLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_MRPPlanning_085")
+  mrpplanning_reference                   mrpplanning      @relation(fields: [PONumber, POLine], references: [Reference, ReferenceLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_MRPPlanning_085_mrp")
+  pipissues_relation                      pipissues        @relation(fields: [PONumber, POLine], references: [PONumber, POLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_MRPPlanning_085_pip")
   poheader                                poheader         @relation(fields: [PONumber], references: [PONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_POHeader_114")
-  mrpplanning                             poshortages      @relation(fields: [PONumber, POLine], references: [PONumber, LineNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_MRPPlanning_085")
+  poshortages_relation                    poshortages      @relation(fields: [PONumber, POLine], references: [PONumber, LineNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_MRPPlanning_085_short")
   partmaster                              partmaster?      @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_PartMaster_101")
   taxcodes_podetail_BaseTaxCodeTotaxcodes taxcodes?        @relation("podetail_BaseTaxCodeTotaxcodes", fields: [BaseTaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_TaxCodes_164")
   taxcodes_podetail_TaxCode2Totaxcodes    taxcodes?        @relation("podetail_TaxCode2Totaxcodes", fields: [TaxCode2], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_TaxCodes_165")
@@ -1125,6 +1141,7 @@ model podetail {
   uomcodes                                uomcodes?        @relation(fields: [PurchaseUOM], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_PODetail_UOMCodes_182")
 
   @@id([PONumber, POLine])
+  @@unique([PartNumber, PartXReference], map: "uniq_PODetail_PartNumber_PartXReference")
   @@index([DepartmentCode], map: "fk_PODetail_DepartmentCodes_033")
   @@index([JobNumber], map: "fk_PODetail_JobMaster_082")
   @@index([BaseTaxCode], map: "fk_PODetail_TaxCodes_164")
@@ -1175,9 +1192,9 @@ model poheader {
   termscodes                              termscodes?        @relation(fields: [TermsCode], references: [TermsCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_POHeader_TermsCodes_173")
   poshortages                             poshortages[]
   seriallotnumbers                        seriallotnumbers[]
-  supplieraddress                         supplieraddress?
-  supplieraddress                         supplieraddress?
-  supplieraddress                         supplieraddress?
+  billto_supplieraddress                  supplieraddress?   @relation("poheader_billto_supplieraddress", fields: [SupplierID, BillToAddress], references: [SupplierID, AddressID])
+  shipto_supplieraddress                  supplieraddress?   @relation("poheader_shipto_supplieraddress", fields: [SupplierID, ShipToAddress], references: [SupplierID, AddressID])
+  default_supplieraddress                 supplieraddress?   @relation("poheader_default_supplieraddress", fields: [SupplierID, SupplierAddress], references: [SupplierID, AddressID])
 
   @@index([CurrencyCode], map: "fk_POHeader_CurrencyCodes_014")
   @@index([DepartmentCode], map: "fk_POHeader_DepartmentCodes_034")
@@ -1206,6 +1223,7 @@ model poshortages {
   partmaster       partmaster @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_POShortages_PartMaster_103")
 
   @@id([PONumber, LineNumber, PartNumber, UOMCode])
+  @@unique([PONumber, LineNumber], map: "uniq_POShortages_PONumber_LineNumber")
   @@index([PartNumber], map: "fk_POShortages_PartMaster_103")
   @@index([PONumber, LineNumber], map: "ix_par_POShortages_PONumber_LineNumber")
 }
@@ -1405,11 +1423,11 @@ model seriallotnumbers {
   PostType              String?             @db.VarChar(1)
   SerialLotNumbers_PKey Int                 @unique(map: "uniq_SerialLotNumbers_SerialLotNumbers_PKey") @default(autoincrement())
   pipissues             pipissues[]
-  inventorylots         inventorylots       @relation(fields: [PartNumber, SNLOTNumber], references: [PartNumber, SNLotNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_InventoryLots_067")
-  inventorylots         inventorytags       @relation(fields: [PartNumber, SNLOTNumber], references: [PartNumber, SNLotNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_InventoryLots_067")
-  poheader              poheader?           @relation(fields: [Reference], references: [PONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_POHeader_116")
+  inventorylots         inventorylots       @relation(fields: [PartNumber, SNLOTNumber], references: [PartNumber, SNLotNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_InventoryLots_067_lots")
+  inventorytags         inventorytags       @relation(fields: [PartNumber, SNLOTNumber], references: [PartNumber, SNLotNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_InventoryLots_067_tags")
+  po_purchase           poheader?           @relation(fields: [Reference], references: [PONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_POHeader_116_po")
   partmaster            partmaster          @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_PartMaster_105")
-  poheader              woheader?           @relation(fields: [Reference], references: [WONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_POHeader_116")
+  wo_reference          woheader?           @relation(fields: [Reference], references: [WONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SerialLotNumbers_WOHeader_116_wo")
   transactiondetail     transactiondetail[]
   wipissues             wipissues[]
 
@@ -1427,6 +1445,7 @@ model shiftdowntime {
   workcentershifts   workcentershifts?
 
   @@id([WorkCenterID, ShiftID, StartDate])
+  @@unique([ShiftID, WorkCenterID], map: "uniq_ShiftDowntime_ShiftID_WorkCenterID")
   @@index([ShiftID, WorkCenterID], map: "ix_par_ShiftDowntime_ShiftID_WorkCenterID")
 }
 
@@ -1468,9 +1487,9 @@ model sodetail {
   UserDefined                          String?            @db.VarChar(10)
   SODetail_PKey                        Int                @unique(map: "uniq_SODetail_SODetail_PKey") @default(autoincrement())
   partxreference                       partxreference[]
-  creditmemodetail                     creditmemodetail   @relation(fields: [SONumber, SOLine], references: [SONumber, SOLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_CreditMemoDetail_006")
-  creditmemodetail                     invoicedetail      @relation(fields: [SONumber, SOLine], references: [SONumber, SOLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_CreditMemoDetail_006")
-  creditmemodetail                     mrpplanning        @relation(fields: [SONumber, SOLine], references: [Reference, ReferenceLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_CreditMemoDetail_006")
+  creditmemodetail                     creditmemodetail   @relation(fields: [SONumber, SOLine], references: [SONumber, SOLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_CreditMemoDetail_006_credit")
+  invoicedetail_relation               invoicedetail      @relation(fields: [SONumber, SOLine], references: [SONumber, SOLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_CreditMemoDetail_006_invoice")
+  mrpplanning_relation                 mrpplanning        @relation(fields: [SONumber, SOLine], references: [Reference, ReferenceLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_CreditMemoDetail_006_mrp")
   partmaster                           partmaster?        @relation(fields: [PartNumber], references: [PartNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_PartMaster_106")
   productclasscodes                    productclasscodes? @relation(fields: [ProductClass], references: [ProductClass], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_ProductClassCodes_124")
   soheader                             soheader           @relation(fields: [SONumber], references: [SONumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_SOHeader_146")
@@ -1480,6 +1499,7 @@ model sodetail {
   uomcodes                             uomcodes?          @relation(fields: [SalesUOM], references: [UOMCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SODetail_UOMCodes_184")
 
   @@id([SONumber, SOLine])
+  @@unique([PartNumber, PartXReference], map: "uniq_SODetail_PartNumber_PartXReference")
   @@index([ProductClass], map: "fk_SODetail_ProductClassCodes_124")
   @@index([TaxCode], map: "fk_SODetail_TaxCodes_168")
   @@index([TaxCode2], map: "fk_SODetail_TaxCodes_169")
@@ -1556,8 +1576,8 @@ model stocklocations {
   DescText                                                                        String?             @db.VarChar(40)
   StockLocations_PKey                                                             Int                 @unique(map: "uniq_StockLocations_StockLocations_PKey") @default(autoincrement())
   departmentcodes                                                                 departmentcodes     @relation(fields: [DepartmentCode], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_StockLocations_DepartmentCodes_038")
-  inventorylots                                                                   inventorylots       @relation(fields: [DepartmentCode, LocationCode], references: [DepartmentCode, LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_StockLocations_InventoryLots_068")
-  inventorylots                                                                   inventorytags       @relation(fields: [DepartmentCode, LocationCode], references: [DepartmentCode, LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_StockLocations_InventoryLots_068")
+  inventorylots                                                                   inventorylots       @relation(fields: [DepartmentCode, LocationCode], references: [DepartmentCode, LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_StockLocations_InventoryLots_068_lots")
+  inventorytags                                                                   inventorytags       @relation(fields: [DepartmentCode, LocationCode], references: [DepartmentCode, LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_StockLocations_InventoryLots_068_tags")
   partmaster                                                                      partmaster          @relation(fields: [LocationCode], references: [LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_StockLocations_PartMaster_107")
   transactiondetail_transactiondetail_FromDepartment_FromLocationTostocklocations transactiondetail[] @relation("transactiondetail_FromDepartment_FromLocationTostocklocations")
   transactiondetail_transactiondetail_ToDepartment_ToLocationTostocklocations     transactiondetail[] @relation("transactiondetail_ToDepartment_ToLocationTostocklocations")
@@ -1590,14 +1610,15 @@ model supplieraddress {
   Country              String?          @db.VarChar(20)
   TaxCode              String?          @db.VarChar(10)
   SupplierAddress_PKey Int              @unique(map: "uniq_SupplierAddress_SupplierAddress_PKey") @default(autoincrement())
-  poheader             poheader         @relation(fields: [SupplierID, AddressID], references: [SupplierID, BillToAddress], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_POHeader_117")
-  poheader             poheader         @relation(fields: [SupplierID, AddressID], references: [SupplierID, ShipToAddress], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_POHeader_118")
-  poheader             poheader         @relation(fields: [SupplierID, AddressID], references: [SupplierID, SupplierAddress], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_POHeader_119")
+  poheader_billto      poheader[]       @relation("poheader_billto_supplieraddress")
+  poheader_shipto      poheader[]       @relation("poheader_shipto_supplieraddress")
+  poheader_default     poheader[]       @relation("poheader_default_supplieraddress")
   suppliercontacts     suppliercontacts @relation(fields: [AddressID, SupplierID], references: [AddressID, SupplierID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_SupplierContacts_150")
   suppliers            suppliers        @relation(fields: [SupplierID], references: [SupplierID], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_Suppliers_153")
   taxcodes             taxcodes?        @relation(fields: [TaxCode], references: [TaxCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_SupplierAddress_TaxCodes_171")
 
   @@id([SupplierID, AddressID])
+  @@unique([AddressID, SupplierID], map: "uniq_SupplierAddress_Address_Supplier")
   @@index([AddressID, SupplierID], map: "fk_SupplierAddress_SupplierContacts_150")
   @@index([TaxCode], map: "fk_SupplierAddress_TaxCodes_171")
 }
@@ -1617,6 +1638,7 @@ model suppliercontacts {
   supplieraddress       supplieraddress?
 
   @@id([SupplierID, ContactID, AddressID])
+  @@unique([AddressID, SupplierID], map: "uniq_SupplierContacts_AddressID_SupplierID")
   @@index([AddressID, SupplierID], map: "ix_par_SupplierContacts_AddressID_SupplierID")
 }
 
@@ -1717,6 +1739,7 @@ model transactiondetail {
   SOCost                                                                       Float?            @default(0)
   POCost                                                                       Float?
   WOCost                                                                       Float?            @default(0)
+  InvoiceNumber                                                                String?           @db.VarChar(10)
   InvoiceLine                                                                  String?           @db.VarChar(10)
   TransactionDetail_PKey                                                       Int               @unique(map: "uniq_TransactionDetail_TransactionDetail_PKey") @default(autoincrement())
   TransactionInformation                                                       String?           @db.VarChar(60)
@@ -1724,14 +1747,14 @@ model transactiondetail {
   ToJobNumber                                                                  String?           @db.VarChar(15)
   departmentcodes_transactiondetail_ToDepartmentTodepartmentcodes              departmentcodes?  @relation("transactiondetail_ToDepartmentTodepartmentcodes", fields: [ToDepartment], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_DepartmentCodes_039")
   departmentcodes_transactiondetail_FromDepartmentTodepartmentcodes            departmentcodes?  @relation("transactiondetail_FromDepartmentTodepartmentcodes", fields: [FromDepartment], references: [DepartmentCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_DepartmentCodes_040")
-  invoicedetail                                                                invoicedetail?    @relation(fields: [InvoiceLine], references: [InvoiceLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_InvoiceDetail_074")
+  invoicedetail                                                                invoicedetail?    @relation(fields: [InvoiceNumber, InvoiceLine], references: [InvoiceNumber, InvoiceLine], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_InvoiceDetail_074")
   seriallotnumbers                                                             seriallotnumbers? @relation(fields: [PartNumber, SNLotNumber], references: [PartNumber, SNLOTNumber], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_SerialLotNumbers_136")
   stocklocations_transactiondetail_FromDepartment_FromLocationTostocklocations stocklocations?   @relation("transactiondetail_FromDepartment_FromLocationTostocklocations", fields: [FromDepartment, FromLocation], references: [DepartmentCode, LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_StockLocations_147")
   stocklocations_transactiondetail_ToDepartment_ToLocationTostocklocations     stocklocations?   @relation("transactiondetail_ToDepartment_ToLocationTostocklocations", fields: [ToDepartment, ToLocation], references: [DepartmentCode, LocationCode], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_StockLocations_148")
   transactionheader                                                            transactionheader @relation(fields: [TransactionGroup], references: [TransactionGroup], onDelete: NoAction, onUpdate: NoAction, map: "fk_TransactionDetail_TransactionHeader_176")
 
   @@id([TransactionGroup, TransactionID])
-  @@index([InvoiceLine], map: "fk_TransactionDetail_InvoiceDetail_074")
+  @@index([InvoiceNumber, InvoiceLine], map: "fk_TransactionDetail_InvoiceDetail_074")
   @@index([PartNumber, SNLotNumber], map: "fk_TransactionDetail_SerialLotNumbers_136")
   @@index([FromDepartment, FromLocation], map: "fk_TransactionDetail_StockLocations_147")
   @@index([ToDepartment, ToLocation], map: "fk_TransactionDetail_StockLocations_148")
@@ -1872,6 +1895,7 @@ model workcentershifts {
   workcenters           workcenters   @relation(fields: [WorkCenterID], references: [WorkCenterID], onDelete: NoAction, onUpdate: NoAction, map: "fk_WorkCenterShifts_WorkCenters_195")
 
   @@id([WorkCenterID, ShiftID])
+  @@unique([ShiftID, WorkCenterID], map: "uniq_WorkCenterShifts_ShiftID_WorkCenterID")
   @@index([ShiftID, WorkCenterID], map: "fk_WorkCenterShifts_ShiftDowntime_138")
 }
 
