@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 
-import { logger } from '../lib/logger.js';
+import { logger, serializeError } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 
 export type PartSearchResult = {
@@ -134,11 +134,27 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
     record['available_quantity'] ??
     record['availablequantity'];
   const availableQuantity = Math.max(0, asNumber(availableQuantityRaw));
-  const hasBom =
-    record['hasBom'] === true ||
-    record['hasBom'] === 1 ||
-    record['hasBom'] === '1' ||
-    record['hasBom'] === 'true';
+  const hasBomRaw = record['hasBom'];
+  const hasBom = (() => {
+    if (typeof hasBomRaw === 'boolean') {
+      return hasBomRaw;
+    }
+
+    if (typeof hasBomRaw === 'number') {
+      return hasBomRaw > 0;
+    }
+
+    if (typeof hasBomRaw === 'bigint') {
+      return hasBomRaw > 0;
+    }
+
+    if (typeof hasBomRaw === 'string') {
+      const normalized = hasBomRaw.trim().toLowerCase();
+      return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'y';
+    }
+
+    return false;
+  })();
 
   return {
     partNumber,
@@ -299,22 +315,29 @@ function toSafeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-export async function getPartDetail(partNumber: string): Promise<PartDetail | null> {
-  const trimmed = toSafeString(partNumber);
+type RawPartDetailRow = {
+  PartNumber: string;
+  DescText: string | null;
+  Revision: string | null;
+  StockUOM: string | null;
+  ISC: string | null;
+  part_type_ID: number | null;
+  attribute_ID: number | null;
+  part_data: string | null;
+  attribute_code: string | null;
+  required_rule: unknown;
+};
 
-  if (!trimmed) {
-    return null;
-  }
-
+async function loadBasicPart(partNumber: string): Promise<PartDetail | null> {
   const part = await prisma.partmaster.findUnique({
-    where: { PartNumber: trimmed },
-    include: {
-      part_type: true,
-      part_data: {
-        include: {
-          attribute: true,
-        },
-      },
+    where: { PartNumber: partNumber },
+    select: {
+      PartNumber: true,
+      DescText: true,
+      Revision: true,
+      StockUOM: true,
+      ISC: true,
+      part_type_ID: true,
     },
   });
 
@@ -329,13 +352,69 @@ export async function getPartDetail(partNumber: string): Promise<PartDetail | nu
     stockUom: part.StockUOM ?? '',
     status: part.ISC ?? '',
     partTypeId: part.part_type_ID ?? null,
-    attributes: part.part_data.map((entry) => ({
-      attributeId: entry.attribute_ID,
-      code: entry.attribute?.attribute_code ?? String(entry.attribute_ID),
-      value: entry.part_data ?? '',
-      required: isAttributeRequired(entry.attribute?.required_rule),
-    })),
+    attributes: [],
   };
+}
+
+export async function getPartDetail(partNumber: string): Promise<PartDetail | null> {
+  const trimmed = toSafeString(partNumber);
+
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const rows = await prisma.$queryRaw<RawPartDetailRow[]>(Prisma.sql`
+      SELECT
+        pm.PartNumber,
+        pm.DescText,
+        pm.Revision,
+        pm.StockUOM,
+        pm.ISC,
+        pm.part_type_ID,
+        pd.attribute_ID,
+        pd.part_data,
+        attr.attribute_code,
+        attr.required_rule
+      FROM partmaster pm
+      LEFT JOIN part_data pd
+        ON pd.PartMaster_PKey = pm.PartMaster_PKey
+      LEFT JOIN attribute attr
+        ON attr.attribute_ID = pd.attribute_ID
+      WHERE pm.PartNumber = ${trimmed}
+    `);
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return null;
+    }
+
+    const base = rows[0];
+    const attributes = rows
+      .filter((row) => row.attribute_ID !== null)
+      .map((row) => ({
+        attributeId: Number(row.attribute_ID),
+        code: normalizeString(row.attribute_code) || String(row.attribute_ID),
+        value: normalizeString(row.part_data),
+        required: isAttributeRequired(row.required_rule),
+      }));
+
+    return {
+      partNumber: base.PartNumber,
+      description: normalizeString(base.DescText),
+      revision: normalizeString(base.Revision),
+      stockUom: normalizeString(base.StockUOM),
+      status: normalizeString(base.ISC),
+      partTypeId: typeof base.part_type_ID === 'number' ? base.part_type_ID : null,
+      attributes,
+    };
+  } catch (error) {
+    logger.error('Failed to load part detail, attempting fallback lookup', {
+      partNumber: trimmed,
+      error: serializeError(error),
+    });
+
+    return await loadBasicPart(trimmed);
+  }
 }
 
 async function resolveAttributeDefinitions(partTypeId: number | undefined): Promise<Map<number, PartAttributeDefinition>> {
