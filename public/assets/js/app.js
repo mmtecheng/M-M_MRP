@@ -1502,7 +1502,10 @@ function initPartEditor() {
 
     const normalizedRoom = roomCode.toLowerCase();
     const filtered = roomCode
-      ? state.locations.filter((entry) => normalizeCode(entry.roomCode).toLowerCase() === normalizedRoom)
+      ? state.locations.filter(
+          (entry) =>
+            normalizeCode(entry.roomCode).toLowerCase() === normalizedRoom && normalizeCode(entry.locationCode).length > 0,
+        )
       : [];
     let foundSelection = false;
 
