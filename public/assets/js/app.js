@@ -1,3 +1,105 @@
+const LOCATION_LIMIT = 5000;
+
+const referenceCache = {
+  locations: [],
+  locationsLoaded: false,
+  locationsPromise: null,
+};
+
+const normalizeCode = (value) => String(value ?? '').trim();
+
+const toLocationKey = (roomCode, locationCode) => {
+  const safeRoom = normalizeCode(roomCode).toLowerCase();
+  const safeLocation = normalizeCode(locationCode).toLowerCase();
+  return `${safeRoom}::${safeLocation}`;
+};
+
+async function loadLocationsReference(limit = LOCATION_LIMIT) {
+  if (referenceCache.locationsLoaded && Array.isArray(referenceCache.locations) && referenceCache.locations.length > 0) {
+    return referenceCache.locations;
+  }
+
+  if (referenceCache.locationsPromise) {
+    return referenceCache.locationsPromise;
+  }
+
+  referenceCache.locationsPromise = (async () => {
+    const response = await fetch(`/api/locations?limit=${limit}`);
+
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const locations = Array.isArray(payload?.data) ? payload.data : [];
+    referenceCache.locations = locations;
+    referenceCache.locationsLoaded = true;
+    return locations;
+  })()
+    .catch((error) => {
+      console.error('Failed to load locations', error);
+      referenceCache.locationsLoaded = false;
+      referenceCache.locations = [];
+      throw error;
+    })
+    .finally(() => {
+      referenceCache.locationsPromise = null;
+    });
+
+  return referenceCache.locationsPromise;
+}
+
+const getCachedLocations = () => referenceCache.locations;
+
+const buildLocationLookups = (locations = []) => {
+  const byRoom = new Map();
+  const byRoomAndLocation = new Map();
+
+  locations.forEach((entry) => {
+    const roomCode = normalizeCode(entry?.roomCode);
+    const locationCode = normalizeCode(entry?.locationCode);
+
+    if (roomCode && !byRoom.has(roomCode)) {
+      byRoom.set(roomCode, entry);
+    }
+
+    if (locationCode) {
+      const locationKey = toLocationKey(roomCode, locationCode);
+      byRoomAndLocation.set(locationKey, entry);
+      if (!roomCode) {
+        byRoomAndLocation.set(toLocationKey('', locationCode), entry);
+      }
+    }
+  });
+
+  return { byRoom, byRoomAndLocation };
+};
+
+const applyLocationDisplays = (parts = [], locations = []) => {
+  const { byRoom, byRoomAndLocation } = buildLocationLookups(locations);
+
+  return parts.map((part) => {
+    const roomCode = normalizeCode(part?.roomCode);
+    const locationCode = normalizeCode(part?.locationCode);
+    const roomLookup = byRoom.get(roomCode);
+    const locationLookup =
+      byRoomAndLocation.get(toLocationKey(roomCode, locationCode)) ||
+      byRoomAndLocation.get(toLocationKey('', locationCode));
+
+    const roomDisplay = roomLookup?.roomDisplay || (roomLookup?.roomCode ?? '') || part.room || roomCode;
+    const locationDisplay =
+      locationLookup?.locationDisplay || locationLookup?.locationCode || part.location || locationCode;
+
+    return {
+      ...part,
+      room: roomDisplay,
+      roomCode: roomCode || part.roomCode || '',
+      location: locationDisplay,
+      locationCode: locationCode || part.locationCode || '',
+    };
+  });
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const bodyPage = document.body.dataset.page;
   const navLinks = document.querySelectorAll('[data-nav]');
@@ -344,7 +446,14 @@ function initInventorySearch() {
       }
 
       const payload = await response.json();
-      const parts = Array.isArray(payload.data) ? payload.data : [];
+      let parts = Array.isArray(payload.data) ? payload.data : [];
+
+      try {
+        const locations = await loadLocationsReference();
+        parts = applyLocationDisplays(parts, locations);
+      } catch (error) {
+        console.error('Unable to align room and location data', error);
+      }
 
       if (parts.length === 0) {
         showMessage('No parts matched your filters.');
@@ -1324,24 +1433,19 @@ function initPartEditor() {
   };
 
   const loadLocations = async () => {
-    if (state.locationsLoaded) {
+    if (state.locationsLoaded && state.locations.length > 0) {
       return;
     }
 
     try {
-      const response = await fetch('/api/locations?limit=5000');
-
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
-      }
-
-      const payload = await response.json();
-      state.locations = Array.isArray(payload?.data) ? payload.data : [];
+      const locations = await loadLocationsReference();
+      state.locations = Array.isArray(locations) ? locations : [];
       state.locationsLoaded = true;
     } catch (error) {
       console.error('Failed to load locations', error);
       setFeedback('Unable to load Locations. Please try again.', 'error');
       state.locations = [];
+      state.locationsLoaded = false;
     }
   };
 
@@ -1373,7 +1477,7 @@ function initPartEditor() {
       const option = document.createElement('option');
       option.value = entry.roomCode ?? '';
       option.textContent = entry.roomDisplay || entry.roomCode;
-      if (typeof selectedCode === 'string' && selectedCode === entry.roomCode) {
+      if (typeof selectedCode === 'string' && selectedCode.toLowerCase() === entry.roomCode?.toLowerCase()) {
         option.selected = true;
         foundSelection = true;
       }
@@ -1396,7 +1500,10 @@ function initPartEditor() {
     placeholder.textContent = roomCode ? 'Select Location' : 'Select Room First';
     locationSelect.appendChild(placeholder);
 
-    const filtered = roomCode ? state.locations.filter((entry) => entry.roomCode === roomCode) : [];
+    const normalizedRoom = roomCode.toLowerCase();
+    const filtered = roomCode
+      ? state.locations.filter((entry) => normalizeCode(entry.roomCode).toLowerCase() === normalizedRoom)
+      : [];
     let foundSelection = false;
 
     filtered.forEach((entry) => {
@@ -1404,7 +1511,7 @@ function initPartEditor() {
       option.value = entry.locationCode ?? '';
       option.textContent = entry.locationDisplay || entry.locationCode;
       option.dataset.roomCode = entry.roomCode ?? '';
-      if (typeof selectedCode === 'string' && selectedCode === entry.locationCode) {
+      if (typeof selectedCode === 'string' && selectedCode.toLowerCase() === entry.locationCode?.toLowerCase()) {
         option.selected = true;
         foundSelection = true;
       }
