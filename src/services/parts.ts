@@ -207,10 +207,8 @@ function buildPartQuery(whereClause: Prisma.Sql, limitClause: Prisma.Sql = Prism
         sl.DepartmentCode,
         sl.LocationCode,
         MAX(NULLIF(TRIM(sl.DescText), '')) AS LocationDescription,
-        MAX(NULLIF(TRIM(dc.DescText), '')) AS DepartmentDescription
+        '' AS DepartmentDescription
       FROM stocklocations sl
-      LEFT JOIN departmentcodes dc
-        ON dc.DepartmentCode = sl.DepartmentCode
       WHERE sl.DepartmentCode IS NOT NULL
         AND LENGTH(TRIM(sl.DepartmentCode)) > 0
         AND sl.LocationCode IS NOT NULL

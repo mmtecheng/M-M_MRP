@@ -39,10 +39,8 @@ export async function listLocations(limit = 500): Promise<LocationOption[]> {
     WITH rooms AS (
       SELECT
         sl.DepartmentCode,
-        MAX(NULLIF(TRIM(dc.DescText), '')) AS DepartmentDescription
+        '' AS DepartmentDescription
       FROM stocklocations sl
-      LEFT JOIN departmentcodes dc
-        ON dc.DepartmentCode = sl.DepartmentCode
       WHERE sl.DepartmentCode IS NOT NULL
         AND LENGTH(TRIM(sl.DepartmentCode)) > 0
       GROUP BY sl.DepartmentCode
