@@ -181,7 +181,7 @@ function buildPartQuery(whereClause: Prisma.Sql, limitClause: Prisma.Sql = Prism
       pm.Revision,
       pm.StockUOM,
       pm.ISC,
-      pm.DepartmentCode,
+      pm.StockroomCode,
       pm.LocationCode,
       sl.LocationDescription,
       sl.DepartmentDescription,
@@ -217,7 +217,7 @@ function buildPartQuery(whereClause: Prisma.Sql, limitClause: Prisma.Sql = Prism
         AND LENGTH(TRIM(sl.LocationCode)) > 0
       GROUP BY sl.DepartmentCode, sl.LocationCode
     ) sl
-      ON sl.DepartmentCode = pm.DepartmentCode AND sl.LocationCode = pm.LocationCode
+      ON sl.DepartmentCode = pm.StockroomCode AND sl.LocationCode = pm.LocationCode
     LEFT JOIN (
       SELECT
         pd.PartMaster_PKey,
@@ -306,8 +306,18 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
     'departmentDescription',
     'RoomDescription',
     'roomDescription',
+    'StockroomDescription',
+    'stockroomDescription',
   ).trim();
-  const roomCode = coalesce(record, 'DepartmentCode', 'departmentCode', 'RoomCode', 'roomCode').trim();
+  const roomCode = coalesce(
+    record,
+    'StockroomCode',
+    'stockroomCode',
+    'DepartmentCode',
+    'departmentCode',
+    'RoomCode',
+    'roomCode',
+  ).trim();
   const locationLabel = coalesce(
     record,
     'LocationDescription',
@@ -347,7 +357,6 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
 
   const displayRoom = roomLabel.length > 0 ? roomLabel : roomCode;
   const displayLocation = locationLabel.length > 0 ? locationLabel : locationCode;
-  const combinedLocation = [displayRoom, displayLocation].filter(Boolean).join(' • ');
 
   return {
     partNumber,
@@ -356,7 +365,7 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
     availableQuantity,
     room: displayRoom,
     roomCode,
-    location: combinedLocation || displayLocation || roomCode,
+    location: displayLocation || locationCode,
     locationCode,
     stockUom,
     status,
@@ -753,8 +762,8 @@ export async function getPartDetail(partNumber: string): Promise<PartDetail | nu
     revision: overview?.revision ?? normalizeString(part.Revision),
     stockUom: overview?.stockUom ?? normalizeString(part.StockUOM),
     status: overview?.status ?? normalizeString(part.ISC),
-    roomCode: overview?.roomCode ?? normalizeString(part.DepartmentCode),
-    room: overview?.room ?? normalizeString(part.DepartmentCode),
+    roomCode: overview?.roomCode ?? normalizeString(part.StockroomCode),
+    room: overview?.room ?? normalizeString(part.StockroomCode),
     locationCode: overview?.locationCode ?? normalizeString(part.LocationCode),
     location: overview?.location ?? normalizeString(part.LocationCode),
     notes: overview?.notes ?? '',
@@ -872,12 +881,12 @@ export async function upsertPart(payload: PartUpsertPayload, allowCreate: boolea
     Revision: toSafeString(payload.revision) || null,
     StockUOM: toSafeString(payload.stockUom) || null,
     ISC: toSafeString(payload.status) || null,
-    DepartmentCode: toSafeString(payload.room) || null,
+    StockroomCode: toSafeString(payload.room) || null,
     LocationCode: toSafeString(payload.location) || null,
     part_type_ID: effectivePartTypeId,
   } satisfies Pick<
     Prisma.partmasterUncheckedCreateInput,
-    'DescText' | 'Revision' | 'StockUOM' | 'ISC' | 'DepartmentCode' | 'LocationCode' | 'part_type_ID'
+    'DescText' | 'Revision' | 'StockUOM' | 'ISC' | 'StockroomCode' | 'LocationCode' | 'part_type_ID'
   >;
 
   const updateData: Prisma.partmasterUncheckedUpdateInput = { ...baseData };

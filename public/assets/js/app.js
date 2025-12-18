@@ -56,7 +56,7 @@ function initInventorySearch() {
   }
 
   const PAGE_SIZE = 25;
-  const COLUMN_COUNT = 6;
+  const COLUMN_COUNT = 7;
   const quantityFormatter = new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
@@ -238,6 +238,11 @@ function initInventorySearch() {
             detail: {
               partNumber: part.partNumber,
               description: part.description,
+              room: part.room,
+              roomCode: part.roomCode,
+              location: part.location,
+              locationCode: part.locationCode,
+              stockUom: part.stockUom,
               hasBom: Boolean(part.hasBom),
             },
           }),
@@ -262,6 +267,7 @@ function initInventorySearch() {
         part.description,
         quantityFormatter.format(quantityValue),
         part.stockUom,
+        part.room,
         part.location,
         part.notes,
       ];
@@ -1831,7 +1837,7 @@ function initPartEditor() {
     toggleModal(true);
   };
 
-  const openForPart = async (partNumber) => {
+  const openForPart = async (partNumber, overview = null) => {
     await loadReferenceData();
 
     if (!partNumber || partNumber.length === 0) {
@@ -1839,12 +1845,32 @@ function initPartEditor() {
     }
 
     form.reset();
+    const initialRoomCode = overview?.roomCode ?? '';
+    const initialLocationCode = overview?.locationCode ?? '';
+    const initialStockUom = overview?.stockUom ?? '';
+    const initialDescription = (overview?.description ?? '').trim();
+    const initialPartNumber = (overview?.partNumber ?? partNumber).trim();
+    state.currentPart = overview ?? null;
+    partNumberInput.value = initialPartNumber;
     renderPartTypeOptions();
-    renderRoomOptions();
-    renderLocationOptions();
-    renderUomOptions();
+    renderRoomOptions(initialRoomCode);
+    renderLocationOptions(initialRoomCode, initialLocationCode);
+    renderUomOptions(initialStockUom);
     renderAttributes(null, new Map());
-    updateDescriptionFromAttributes();
+    if (initialDescription) {
+      descriptionInput.value = initialDescription;
+      descriptionInput.title = initialDescription;
+      if (modalSubtitle) {
+        modalSubtitle.textContent = initialDescription;
+      }
+    } else {
+      updateDescriptionFromAttributes();
+    }
+
+    if (modalTitle) {
+      modalTitle.textContent = initialPartNumber ? `Part ${initialPartNumber}` : 'Part Details';
+    }
+
     setMode('view');
     setFeedback('Loading part details…');
     toggleModal(true);
@@ -1983,7 +2009,7 @@ function initPartEditor() {
     }
 
     if (detail?.partNumber) {
-      void openForPart(detail.partNumber);
+      void openForPart(detail.partNumber, detail);
     }
   });
 }
