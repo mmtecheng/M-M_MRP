@@ -402,6 +402,15 @@ function parseAttributeConstraint(dataType: string | null): AttributeConstraint 
     return { kind: 'text' };
   }
 
+  const normalizedDataType = dataType.trim().toLowerCase();
+
+  // Some attributes (e.g., Package) use a placeholder enum value to indicate that options
+  // should come from the package master table. Treat these as free text so that valid
+  // package selections don't fail validation against the placeholder entry.
+  if (normalizedDataType.includes('linked to package master table')) {
+    return { kind: 'text' };
+  }
+
   const enumMatch = dataType.match(/^enum\s*\((.*)\)$/i);
 
   if (enumMatch) {
