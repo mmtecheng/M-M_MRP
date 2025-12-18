@@ -1041,6 +1041,7 @@ function initPartEditor() {
   const feedback = modal?.querySelector('[data-part-feedback]');
   const partNumberInput = modal?.querySelector('[data-part-number]');
   const descriptionInput = modal?.querySelector('[data-part-description]');
+  const roomSelect = modal?.querySelector('[data-part-room]');
   const locationSelect = modal?.querySelector('[data-part-location]');
   const stockUomSelect = modal?.querySelector('[data-part-stockuom]');
   const partTypeSelect = modal?.querySelector('[data-part-type]');
@@ -1060,6 +1061,7 @@ function initPartEditor() {
     !feedback ||
     !partNumberInput ||
     !descriptionInput ||
+    !roomSelect ||
     !locationSelect ||
     !stockUomSelect ||
     !partTypeSelect ||
@@ -1231,6 +1233,24 @@ function initPartEditor() {
     return prioritized;
   };
 
+  const prioritizeUomOptions = (options = []) => {
+    const preferredCode = 'EA';
+    const remaining = [];
+    let preferred = null;
+
+    options.forEach((entry) => {
+      const code = String(entry?.code ?? '').trim();
+      if (!preferred && code.toUpperCase() === preferredCode) {
+        preferred = entry;
+        return;
+      }
+
+      remaining.push(entry);
+    });
+
+    return preferred ? [preferred, ...remaining] : remaining;
+  };
+
   const getAttributeWeight = (attribute) => {
     const code = normalizeAttributeCode(attribute?.code);
     if (code === 'alternate') return 2;
@@ -1319,6 +1339,85 @@ function initPartEditor() {
     }
   };
 
+  const getRooms = () => {
+    const rooms = [];
+    const seen = new Set();
+
+    state.locations.forEach((entry) => {
+      const key = String(entry?.roomCode ?? '').toLowerCase();
+      if (!entry?.roomCode || seen.has(key)) return;
+      rooms.push(entry);
+      seen.add(key);
+    });
+
+    return rooms;
+  };
+
+  const renderRoomOptions = (selectedCode = '') => {
+    roomSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select Room';
+    roomSelect.appendChild(placeholder);
+
+    const rooms = getRooms();
+    let foundSelection = false;
+
+    rooms.forEach((entry) => {
+      const option = document.createElement('option');
+      option.value = entry.roomCode ?? '';
+      option.textContent = entry.roomDisplay || entry.roomCode;
+      if (typeof selectedCode === 'string' && selectedCode === entry.roomCode) {
+        option.selected = true;
+        foundSelection = true;
+      }
+      roomSelect.appendChild(option);
+    });
+
+    if (selectedCode && !foundSelection) {
+      const fallback = document.createElement('option');
+      fallback.value = selectedCode;
+      fallback.textContent = selectedCode;
+      fallback.selected = true;
+      roomSelect.appendChild(fallback);
+    }
+  };
+
+  const renderLocationOptions = (roomCode = '', selectedCode = '') => {
+    locationSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = roomCode ? 'Select Location' : 'Select Room First';
+    locationSelect.appendChild(placeholder);
+
+    const filtered = roomCode ? state.locations.filter((entry) => entry.roomCode === roomCode) : [];
+    let foundSelection = false;
+
+    filtered.forEach((entry) => {
+      const option = document.createElement('option');
+      option.value = entry.locationCode ?? '';
+      option.textContent = entry.locationDisplay || entry.locationCode;
+      option.dataset.roomCode = entry.roomCode ?? '';
+      if (typeof selectedCode === 'string' && selectedCode === entry.locationCode) {
+        option.selected = true;
+        foundSelection = true;
+      }
+      locationSelect.appendChild(option);
+    });
+
+    if (selectedCode && !foundSelection) {
+      const fallback = document.createElement('option');
+      fallback.value = selectedCode;
+      fallback.textContent = selectedCode;
+      fallback.selected = true;
+      locationSelect.appendChild(fallback);
+    }
+
+    const hasRoom = typeof roomCode === 'string' && roomCode.trim().length > 0;
+    const hasLocations = filtered.length > 0 || Boolean(selectedCode);
+    locationSelect.disabled = !hasRoom || !hasLocations;
+  };
+
   const loadUoms = async () => {
     if (state.uomsLoaded) {
       return;
@@ -1341,22 +1440,6 @@ function initPartEditor() {
     }
   };
 
-  const renderLocationOptions = (selectedCode = '') => {
-    locationSelect.innerHTML = '';
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = 'Select Location';
-    locationSelect.appendChild(placeholder);
-
-    state.locations.forEach((entry) => {
-      const option = document.createElement('option');
-      option.value = entry.code ?? '';
-      option.textContent = entry.display || entry.code;
-      option.selected = typeof selectedCode === 'string' && selectedCode === entry.code;
-      locationSelect.appendChild(option);
-    });
-  };
-
   const renderUomOptions = (selectedCode = '') => {
     stockUomSelect.innerHTML = '';
     const placeholder = document.createElement('option');
@@ -1364,13 +1447,27 @@ function initPartEditor() {
     placeholder.textContent = 'Select Stock UOM';
     stockUomSelect.appendChild(placeholder);
 
-    state.uoms.forEach((entry) => {
+    const options = prioritizeUomOptions(state.uoms);
+    let foundSelection = false;
+
+    options.forEach((entry) => {
       const option = document.createElement('option');
       option.value = entry.code ?? '';
       option.textContent = entry.description ? `${entry.code} — ${entry.description}` : entry.code ?? '';
       option.selected = typeof selectedCode === 'string' && selectedCode === entry.code;
+      if (option.selected) {
+        foundSelection = true;
+      }
       stockUomSelect.appendChild(option);
     });
+
+    if (selectedCode && !foundSelection) {
+      const fallback = document.createElement('option');
+      fallback.value = selectedCode;
+      fallback.textContent = selectedCode;
+      fallback.selected = true;
+      stockUomSelect.appendChild(fallback);
+    }
   };
 
   const loadReferenceData = async () => {
@@ -1380,6 +1477,13 @@ function initPartEditor() {
   const shouldIncludeInDescription = (attribute) => {
     const code = normalizeAttributeCode(attribute?.code);
     return code !== 'alternate' && code !== 'notes';
+  };
+
+  const formatAttributeValue = (attribute, value) => {
+    const trimmed = (value ?? '').trim();
+    if (!trimmed) return '';
+    const unit = typeof attribute?.unit === 'string' ? attribute.unit.trim() : '';
+    return unit ? `${trimmed} ${unit}` : trimmed;
   };
 
   const computeDescriptionFromAttributes = (partTypeId, values) => {
@@ -1395,10 +1499,16 @@ function initPartEditor() {
     const subtypeValue = subtypeAttribute ? (attributeValues.get(subtypeAttribute.attributeId) ?? '').trim() : '';
     const descriptionParts = [];
 
+    const partTypeLabel = partType.sheetName || partType.code || '';
+    if (partTypeLabel) {
+      descriptionParts.push(partTypeLabel);
+    }
+
     if (subtypeAttribute) {
-      const value = (attributeValues.get(subtypeAttribute.attributeId) ?? '').trim();
-      if (value) {
-        descriptionParts.push(value);
+      const value = attributeValues.get(subtypeAttribute.attributeId) ?? '';
+      const formatted = formatAttributeValue(subtypeAttribute, value);
+      if (formatted) {
+        descriptionParts.push(formatted);
       }
     }
 
@@ -1417,9 +1527,10 @@ function initPartEditor() {
         return;
       }
 
-      const value = (attributeValues.get(attribute.attributeId) ?? '').trim();
-      if (value) {
-        descriptionParts.push(value);
+      const value = attributeValues.get(attribute.attributeId) ?? '';
+      const formatted = formatAttributeValue(attribute, value);
+      if (formatted) {
+        descriptionParts.push(formatted);
       }
     });
 
@@ -1593,6 +1704,15 @@ function initPartEditor() {
     updateDescriptionFromAttributes();
   };
 
+  const syncRoomAndLocationState = (isEditMode) => {
+    const inEditMode = typeof isEditMode === 'boolean' ? isEditMode : state.mode !== 'view';
+    const roomSelected = (roomSelect.value ?? '').trim().length > 0;
+    const hasLocations = locationSelect.options.length > 1;
+
+    roomSelect.disabled = !inEditMode;
+    locationSelect.disabled = !inEditMode || !roomSelected || !hasLocations;
+  };
+
   const setMode = (mode) => {
     state.mode = mode;
     const isEdit = mode !== 'view';
@@ -1600,9 +1720,9 @@ function initPartEditor() {
 
     partNumberInput.disabled = !isCreate;
     descriptionInput.disabled = false;
-    locationSelect.disabled = !isEdit;
     stockUomSelect.disabled = !isEdit;
     partTypeSelect.disabled = !isEdit;
+    syncRoomAndLocationState(isEdit);
 
     const attributeInputs = attributeContainer.querySelectorAll('[data-part-attribute-input]');
     attributeInputs.forEach((input) => {
@@ -1621,6 +1741,7 @@ function initPartEditor() {
     state.mode = 'create';
     state.attributeValues = new Map();
     renderPartTypeOptions();
+    renderRoomOptions();
     renderLocationOptions();
     renderUomOptions();
     renderAttributes(null);
@@ -1661,9 +1782,12 @@ function initPartEditor() {
     }
 
     state.attributeValues = attributeMap;
+    const roomCode = detail?.roomCode ?? '';
+    const locationCode = detail?.locationCode ?? '';
 
     partNumberInput.value = detail?.partNumber ?? '';
-    renderLocationOptions(detail?.locationCode ?? '');
+    renderRoomOptions(roomCode);
+    renderLocationOptions(roomCode, locationCode);
     renderUomOptions(detail?.stockUom ?? '');
     renderPartTypeOptions(detail?.partTypeId ?? null);
     renderAttributes(detail?.partTypeId ?? null, attributeMap);
@@ -1716,6 +1840,7 @@ function initPartEditor() {
 
     form.reset();
     renderPartTypeOptions();
+    renderRoomOptions();
     renderLocationOptions();
     renderUomOptions();
     renderAttributes(null, new Map());
@@ -1743,6 +1868,7 @@ function initPartEditor() {
   const saveChanges = async () => {
     const partNumber = partNumberInput.value.trim();
     const description = descriptionInput.value.trim();
+    const room = roomSelect.value.trim();
     const location = locationSelect.value.trim();
     const stockUom = stockUomSelect.value.trim();
     const revision = (state.currentPart?.revision ?? '').trim();
@@ -1776,6 +1902,7 @@ function initPartEditor() {
         body: JSON.stringify({
           partNumber,
           description,
+          room,
           location,
           revision,
           stockUom,
@@ -1805,6 +1932,12 @@ function initPartEditor() {
 
   addButton?.addEventListener('click', () => {
     void openForCreate();
+  });
+
+  roomSelect.addEventListener('change', () => {
+    const selectedRoom = roomSelect.value;
+    renderLocationOptions(selectedRoom, '');
+    syncRoomAndLocationState(state.mode !== 'view');
   });
 
   partTypeSelect.addEventListener('change', () => {

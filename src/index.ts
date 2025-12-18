@@ -257,6 +257,7 @@ async function handlePartUpsert(
       revision: typeof body['revision'] === 'string' ? body['revision'] : undefined,
       stockUom: typeof body['stockUom'] === 'string' ? body['stockUom'] : undefined,
       status: typeof body['status'] === 'string' ? body['status'] : undefined,
+      room: typeof body['room'] === 'string' ? body['room'] : undefined,
       location: typeof body['location'] === 'string' ? body['location'] : undefined,
       partTypeId: parseNumeric(body['partTypeId']),
       attributes: Array.isArray(body['attributes'])

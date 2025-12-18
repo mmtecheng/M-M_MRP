@@ -4,9 +4,12 @@ import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 
 export type LocationOption = {
-  code: string;
-  description: string;
-  display: string;
+  roomCode: string;
+  roomDescription: string;
+  roomDisplay: string;
+  locationCode: string;
+  locationDescription: string;
+  locationDisplay: string;
 };
 
 function normalize(value: unknown): string {
@@ -30,24 +33,44 @@ export async function listLocations(limit = 500): Promise<LocationOption[]> {
 
   logger.debug('Loading stock locations', { limit: safeLimit });
 
-  const records = await prisma.$queryRaw<{ LocationCode: unknown; Description: unknown }[]>(Prisma.sql`
+  const records = await prisma.$queryRaw<
+    { DepartmentCode: unknown; LocationCode: unknown; LocationDescription: unknown; DepartmentDescription: unknown }[]
+  >(Prisma.sql`
     SELECT
-      LocationCode,
-      MAX(NULLIF(TRIM(DescText), '')) AS Description
+      sl.DepartmentCode,
+      sl.LocationCode,
+      MAX(NULLIF(TRIM(sl.DescText), '')) AS LocationDescription,
+      MAX(NULLIF(TRIM(dc.DescText), '')) AS DepartmentDescription
     FROM stocklocations
-    WHERE LocationCode IS NOT NULL AND LENGTH(TRIM(LocationCode)) > 0
-    GROUP BY LocationCode
-    ORDER BY LocationCode ASC
+    sl
+    LEFT JOIN departmentcodes dc
+      ON dc.DepartmentCode = sl.DepartmentCode
+    WHERE sl.DepartmentCode IS NOT NULL
+      AND LENGTH(TRIM(sl.DepartmentCode)) > 0
+      AND sl.LocationCode IS NOT NULL
+      AND LENGTH(TRIM(sl.LocationCode)) > 0
+    GROUP BY sl.DepartmentCode, sl.LocationCode
+    ORDER BY sl.DepartmentCode ASC, sl.LocationCode ASC
     LIMIT ${safeLimit}
   `);
 
   return records
     .map((entry) => {
-      const code = normalize(entry.LocationCode);
-      const description = normalize(entry.Description);
-      const display = description ? `${code} — ${description}` : code;
+      const roomCode = normalize(entry.DepartmentCode);
+      const locationCode = normalize(entry.LocationCode);
+      const roomDescription = normalize(entry.DepartmentDescription);
+      const locationDescription = normalize(entry.LocationDescription);
+      const roomDisplay = roomDescription ? `${roomCode} — ${roomDescription}` : roomCode;
+      const locationDisplay = locationDescription ? `${locationCode} — ${locationDescription}` : locationCode;
 
-      return { code, description, display };
+      return {
+        roomCode,
+        roomDescription,
+        roomDisplay,
+        locationCode,
+        locationDescription,
+        locationDisplay,
+      };
     })
-    .filter((entry) => entry.code.length > 0);
+    .filter((entry) => entry.roomCode.length > 0 && entry.locationCode.length > 0);
 }

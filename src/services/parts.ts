@@ -8,6 +8,8 @@ export type PartSearchResult = {
   description: string;
   revision: string;
   availableQuantity: number;
+  room: string;
+  roomCode: string;
   location: string;
   locationCode: string;
   stockUom: string;
@@ -41,6 +43,8 @@ export type PartDetail = {
   revision: string;
   stockUom: string;
   status: string;
+  roomCode: string;
+  room: string;
   locationCode: string;
   location: string;
   notes: string;
@@ -156,6 +160,7 @@ export type PartUpsertPayload = {
   revision?: string;
   stockUom?: string;
   status?: string;
+  room?: string;
   location?: string;
   partTypeId?: number;
   attributes?: { attributeId: number; value: string }[];
@@ -176,8 +181,10 @@ function buildPartQuery(whereClause: Prisma.Sql, limitClause: Prisma.Sql = Prism
       pm.Revision,
       pm.StockUOM,
       pm.ISC,
+      pm.DepartmentCode,
       pm.LocationCode,
       sl.LocationDescription,
+      sl.DepartmentDescription,
       notes.Notes,
       EXISTS (SELECT 1 FROM bom b WHERE b.Assembly = pm.PartNumber LIMIT 1) AS hasBom,
       GREATEST(COALESCE(il.quantityOnHand, 0) - COALESCE(it.quantityAllocated, 0), 0) AS availableQuantity
@@ -196,11 +203,21 @@ function buildPartQuery(whereClause: Prisma.Sql, limitClause: Prisma.Sql = Prism
     ) it
       ON it.PartNumber = pm.PartNumber
     LEFT JOIN (
-      SELECT LocationCode, MAX(NULLIF(TRIM(DescText), '')) AS LocationDescription
-      FROM stocklocations
-      GROUP BY LocationCode
+      SELECT
+        sl.DepartmentCode,
+        sl.LocationCode,
+        MAX(NULLIF(TRIM(sl.DescText), '')) AS LocationDescription,
+        MAX(NULLIF(TRIM(dc.DescText), '')) AS DepartmentDescription
+      FROM stocklocations sl
+      LEFT JOIN departmentcodes dc
+        ON dc.DepartmentCode = sl.DepartmentCode
+      WHERE sl.DepartmentCode IS NOT NULL
+        AND LENGTH(TRIM(sl.DepartmentCode)) > 0
+        AND sl.LocationCode IS NOT NULL
+        AND LENGTH(TRIM(sl.LocationCode)) > 0
+      GROUP BY sl.DepartmentCode, sl.LocationCode
     ) sl
-      ON sl.LocationCode = pm.LocationCode
+      ON sl.DepartmentCode = pm.DepartmentCode AND sl.LocationCode = pm.LocationCode
     LEFT JOIN (
       SELECT
         pd.PartMaster_PKey,
@@ -283,6 +300,14 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
     'stocking_uom',
   ).trim();
   const status = coalesce(record, 'ISC', 'Status', 'status', 'PartStatus', 'part_status').trim();
+  const roomLabel = coalesce(
+    record,
+    'DepartmentDescription',
+    'departmentDescription',
+    'RoomDescription',
+    'roomDescription',
+  ).trim();
+  const roomCode = coalesce(record, 'DepartmentCode', 'departmentCode', 'RoomCode', 'roomCode').trim();
   const locationLabel = coalesce(
     record,
     'LocationDescription',
@@ -320,12 +345,18 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
     return false;
   })();
 
+  const displayRoom = roomLabel.length > 0 ? roomLabel : roomCode;
+  const displayLocation = locationLabel.length > 0 ? locationLabel : locationCode;
+  const combinedLocation = [displayRoom, displayLocation].filter(Boolean).join(' • ');
+
   return {
     partNumber,
     description,
     revision,
     availableQuantity,
-    location: locationLabel.length > 0 ? locationLabel : locationCode,
+    room: displayRoom,
+    roomCode,
+    location: combinedLocation || displayLocation || roomCode,
     locationCode,
     stockUom,
     status,
@@ -722,6 +753,8 @@ export async function getPartDetail(partNumber: string): Promise<PartDetail | nu
     revision: overview?.revision ?? normalizeString(part.Revision),
     stockUom: overview?.stockUom ?? normalizeString(part.StockUOM),
     status: overview?.status ?? normalizeString(part.ISC),
+    roomCode: overview?.roomCode ?? normalizeString(part.DepartmentCode),
+    room: overview?.room ?? normalizeString(part.DepartmentCode),
     locationCode: overview?.locationCode ?? normalizeString(part.LocationCode),
     location: overview?.location ?? normalizeString(part.LocationCode),
     notes: overview?.notes ?? '',
@@ -839,11 +872,12 @@ export async function upsertPart(payload: PartUpsertPayload, allowCreate: boolea
     Revision: toSafeString(payload.revision) || null,
     StockUOM: toSafeString(payload.stockUom) || null,
     ISC: toSafeString(payload.status) || null,
+    DepartmentCode: toSafeString(payload.room) || null,
     LocationCode: toSafeString(payload.location) || null,
     part_type_ID: effectivePartTypeId,
   } satisfies Pick<
     Prisma.partmasterUncheckedCreateInput,
-    'DescText' | 'Revision' | 'StockUOM' | 'ISC' | 'LocationCode' | 'part_type_ID'
+    'DescText' | 'Revision' | 'StockUOM' | 'ISC' | 'DepartmentCode' | 'LocationCode' | 'part_type_ID'
   >;
 
   const updateData: Prisma.partmasterUncheckedUpdateInput = { ...baseData };
