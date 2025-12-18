@@ -108,7 +108,7 @@ function mapRecord(record: RawUomRecord): UomOverviewRow {
 }
 
 export async function getUnitsOfMeasure(limit = 100): Promise<UomOverviewRow[]> {
-  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.trunc(limit), 250) : 100;
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.trunc(limit), 5000) : 100;
 
   logger.debug('Retrieving units of measure overview', { limit: safeLimit });
 

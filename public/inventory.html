@@ -102,16 +102,15 @@
               <tr>
                 <th>Part Number</th>
                 <th>Description</th>
-                <th>Revision</th>
                 <th>In Stock</th>
-                <th>Location</th>
                 <th>Stock UOM</th>
-                <th>Status</th>
+                <th>Location</th>
+                <th>Notes</th>
               </tr>
             </thead>
             <tbody data-part-results>
               <tr>
-                <td colspan="7" data-part-message>Adjust the filters to search for parts.</td>
+                <td colspan="6" data-part-message>Adjust the filters to search for parts.</td>
               </tr>
             </tbody>
           </table>
@@ -204,27 +203,33 @@
 
                 <div class="modal__field">
                   <label class="modal__label" for="part-description-input">Description</label>
-                  <input id="part-description-input" name="description" type="text" data-part-description />
+                  <input
+                    id="part-description-input"
+                    name="description"
+                    type="text"
+                    data-part-description
+                    readonly
+                    aria-readonly="true"
+                  />
                 </div>
 
                 <div class="modal__field">
-                  <label class="modal__label" for="part-revision-input">Revision</label>
-                  <input id="part-revision-input" name="revision" type="text" data-part-revision />
+                  <label class="modal__label" for="part-location-select">Location</label>
+                  <select id="part-location-select" name="location" data-part-location>
+                    <option value="">Select Location</option>
+                  </select>
                 </div>
 
                 <div class="modal__field">
                   <label class="modal__label" for="part-stockuom-input">Stock UOM</label>
-                  <input id="part-stockuom-input" name="stockUom" type="text" data-part-stockuom />
+                  <select id="part-stockuom-input" name="stockUom" data-part-stockuom>
+                    <option value="">Select Stock UOM</option>
+                  </select>
                 </div>
 
                 <div class="modal__field">
                   <label class="modal__label" for="part-type-select">Part Type</label>
                   <select id="part-type-select" name="partType" data-part-type required></select>
-                </div>
-
-                <div class="modal__field">
-                  <label class="modal__label" for="part-status-input">Status</label>
-                  <input id="part-status-input" name="status" type="text" data-part-status />
                 </div>
               </div>
 
