@@ -36,21 +36,38 @@ export async function listLocations(limit = 500): Promise<LocationOption[]> {
   const records = await prisma.$queryRaw<
     { DepartmentCode: unknown; LocationCode: unknown; LocationDescription: unknown; DepartmentDescription: unknown }[]
   >(Prisma.sql`
+    WITH rooms AS (
+      SELECT
+        sl.DepartmentCode,
+        MAX(NULLIF(TRIM(dc.DescText), '')) AS DepartmentDescription
+      FROM stocklocations sl
+      LEFT JOIN departmentcodes dc
+        ON dc.DepartmentCode = sl.DepartmentCode
+      WHERE sl.DepartmentCode IS NOT NULL
+        AND LENGTH(TRIM(sl.DepartmentCode)) > 0
+      GROUP BY sl.DepartmentCode
+    ),
+    locations AS (
+      SELECT
+        sl.DepartmentCode,
+        sl.LocationCode,
+        MAX(NULLIF(TRIM(sl.DescText), '')) AS LocationDescription
+      FROM stocklocations sl
+      WHERE sl.DepartmentCode IS NOT NULL
+        AND LENGTH(TRIM(sl.DepartmentCode)) > 0
+        AND sl.LocationCode IS NOT NULL
+        AND LENGTH(TRIM(sl.LocationCode)) > 0
+      GROUP BY sl.DepartmentCode, sl.LocationCode
+    )
     SELECT
-      sl.DepartmentCode,
-      sl.LocationCode,
-      MAX(NULLIF(TRIM(sl.DescText), '')) AS LocationDescription,
-      MAX(NULLIF(TRIM(dc.DescText), '')) AS DepartmentDescription
-    FROM stocklocations
-    sl
-    LEFT JOIN departmentcodes dc
-      ON dc.DepartmentCode = sl.DepartmentCode
-    WHERE sl.DepartmentCode IS NOT NULL
-      AND LENGTH(TRIM(sl.DepartmentCode)) > 0
-      AND sl.LocationCode IS NOT NULL
-      AND LENGTH(TRIM(sl.LocationCode)) > 0
-    GROUP BY sl.DepartmentCode, sl.LocationCode
-    ORDER BY sl.DepartmentCode ASC, sl.LocationCode ASC
+      r.DepartmentCode,
+      l.LocationCode,
+      l.LocationDescription,
+      r.DepartmentDescription
+    FROM rooms r
+    LEFT JOIN locations l
+      ON l.DepartmentCode = r.DepartmentCode
+    ORDER BY r.DepartmentCode ASC, l.LocationCode ASC
     LIMIT ${safeLimit}
   `);
 
@@ -72,5 +89,5 @@ export async function listLocations(limit = 500): Promise<LocationOption[]> {
         locationDisplay,
       };
     })
-    .filter((entry) => entry.roomCode.length > 0 && entry.locationCode.length > 0);
+    .filter((entry) => entry.roomCode.length > 0);
 }
