@@ -9,8 +9,10 @@ export type PartSearchResult = {
   revision: string;
   availableQuantity: number;
   location: string;
+  locationCode: string;
   stockUom: string;
   status: string;
+  notes: string;
   hasBom: boolean;
 };
 
@@ -39,6 +41,9 @@ export type PartDetail = {
   revision: string;
   stockUom: string;
   status: string;
+  locationCode: string;
+  location: string;
+  notes: string;
   partTypeId: number | null;
   attributes: { attributeId: number; code: string; value: string; required: boolean; requiredRule: string | null }[];
 };
@@ -151,6 +156,7 @@ export type PartUpsertPayload = {
   revision?: string;
   stockUom?: string;
   status?: string;
+  location?: string;
   partTypeId?: number;
   attributes?: { attributeId: number; value: string }[];
 };
@@ -161,6 +167,56 @@ type PartSearchOptions = {
   inStockOnly: boolean;
   limit?: number;
 };
+
+function buildPartQuery(whereClause: Prisma.Sql, limitClause: Prisma.Sql = Prisma.sql``) {
+  return Prisma.sql`
+    SELECT
+      pm.PartNumber,
+      pm.DescText,
+      pm.Revision,
+      pm.StockUOM,
+      pm.ISC,
+      pm.LocationCode,
+      sl.LocationDescription,
+      notes.Notes,
+      EXISTS (SELECT 1 FROM bom b WHERE b.Assembly = pm.PartNumber LIMIT 1) AS hasBom,
+      GREATEST(COALESCE(il.quantityOnHand, 0) - COALESCE(it.quantityAllocated, 0), 0) AS availableQuantity
+    FROM partmaster pm
+    LEFT JOIN (
+      SELECT PartNumber, SUM(Quantity) AS quantityOnHand
+      FROM inventorylots
+      GROUP BY PartNumber
+    ) il
+      ON il.PartNumber = pm.PartNumber
+    LEFT JOIN (
+      SELECT PartNumber, SUM(InventoryQuantity) AS quantityAllocated
+      FROM inventorytags
+      WHERE InventoryQuantity IS NOT NULL
+      GROUP BY PartNumber
+    ) it
+      ON it.PartNumber = pm.PartNumber
+    LEFT JOIN (
+      SELECT LocationCode, MAX(NULLIF(TRIM(DescText), '')) AS LocationDescription
+      FROM stocklocations
+      GROUP BY LocationCode
+    ) sl
+      ON sl.LocationCode = pm.LocationCode
+    LEFT JOIN (
+      SELECT
+        pd.PartMaster_PKey,
+        MAX(NULLIF(TRIM(pd.part_data), '')) AS Notes
+      FROM part_data pd
+      INNER JOIN attribute a
+        ON a.attribute_ID = pd.attribute_ID
+      WHERE LOWER(TRIM(a.attribute_code)) = 'notes'
+      GROUP BY pd.PartMaster_PKey
+    ) notes
+      ON notes.PartMaster_PKey = pm.PartMaster_PKey
+    ${whereClause}
+    ORDER BY pm.PartNumber ASC
+    ${limitClause}
+  `;
+}
 
 function normalizeString(value: unknown) {
   if (typeof value === 'string') {
@@ -235,6 +291,7 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
     'locationDisplay',
   ).trim();
   const locationCode = coalesce(record, 'LocationCode', 'locationCode').trim();
+  const notes = coalesce(record, 'Notes', 'notes').trim();
   const availableQuantityRaw =
     record['availableQuantity'] ??
     record['AvailableQuantity'] ??
@@ -269,8 +326,10 @@ function mapPartResult(record: Record<string, unknown>): PartSearchResult {
     revision,
     availableQuantity,
     location: locationLabel.length > 0 ? locationLabel : locationCode,
+    locationCode,
     stockUom,
     status,
+    notes,
     hasBom,
   };
 }
@@ -557,43 +616,27 @@ export async function searchParts(options: PartSearchOptions): Promise<PartSearc
 
   const limitClause = typeof limit === 'number' ? Prisma.sql`LIMIT ${limit}` : Prisma.sql``;
 
-  const results = await prisma.$queryRaw<Record<string, unknown>[]>(Prisma.sql`
-    SELECT
-      pm.PartNumber,
-      pm.DescText,
-      pm.Revision,
-      pm.StockUOM,
-      pm.ISC,
-      pm.LocationCode,
-      sl.LocationDescription,
-      EXISTS (SELECT 1 FROM bom b WHERE b.Assembly = pm.PartNumber LIMIT 1) AS hasBom,
-      GREATEST(COALESCE(il.quantityOnHand, 0) - COALESCE(it.quantityAllocated, 0), 0) AS availableQuantity
-    FROM partmaster pm
-    LEFT JOIN (
-      SELECT PartNumber, SUM(Quantity) AS quantityOnHand
-      FROM inventorylots
-      GROUP BY PartNumber
-    ) il
-      ON il.PartNumber = pm.PartNumber
-    LEFT JOIN (
-      SELECT PartNumber, SUM(InventoryQuantity) AS quantityAllocated
-      FROM inventorytags
-      WHERE InventoryQuantity IS NOT NULL
-      GROUP BY PartNumber
-    ) it
-      ON it.PartNumber = pm.PartNumber
-    LEFT JOIN (
-      SELECT LocationCode, MAX(NULLIF(TRIM(DescText), '')) AS LocationDescription
-      FROM stocklocations
-      GROUP BY LocationCode
-    ) sl
-      ON sl.LocationCode = pm.LocationCode
-    ${whereClause}
-    ORDER BY pm.PartNumber ASC
-    ${limitClause}
-  `);
+  const results = await prisma.$queryRaw<Record<string, unknown>[]>(buildPartQuery(whereClause, limitClause));
 
   return results.map(mapPartResult);
+}
+
+export async function getPartOverview(partNumber: string): Promise<PartSearchResult | null> {
+  const trimmed = normalizeString(partNumber).trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const results = await prisma.$queryRaw<Record<string, unknown>[]>(
+    buildPartQuery(Prisma.sql`WHERE pm.PartNumber = ${trimmed}`, Prisma.sql`LIMIT 1`),
+  );
+
+  if (!Array.isArray(results) || results.length === 0) {
+    return null;
+  }
+
+  return mapPartResult(results[0]);
 }
 
 export async function listPartTypes(): Promise<PartTypeDefinition[]> {
@@ -641,6 +684,8 @@ export async function getPartDetail(partNumber: string): Promise<PartDetail | nu
     return null;
   }
 
+  const overview = await getPartOverview(trimmed);
+
   const part = await prisma.partmaster.findUnique({
     where: { PartNumber: trimmed },
     include: {
@@ -673,10 +718,13 @@ export async function getPartDetail(partNumber: string): Promise<PartDetail | nu
 
   return {
     partNumber: part.PartNumber,
-    description: normalizeString(part.DescText),
-    revision: normalizeString(part.Revision),
-    stockUom: normalizeString(part.StockUOM),
-    status: normalizeString(part.ISC),
+    description: overview?.description ?? normalizeString(part.DescText),
+    revision: overview?.revision ?? normalizeString(part.Revision),
+    stockUom: overview?.stockUom ?? normalizeString(part.StockUOM),
+    status: overview?.status ?? normalizeString(part.ISC),
+    locationCode: overview?.locationCode ?? normalizeString(part.LocationCode),
+    location: overview?.location ?? normalizeString(part.LocationCode),
+    notes: overview?.notes ?? '',
     partTypeId: typeof part.part_type_ID === 'number' ? part.part_type_ID : null,
     attributes,
   };
@@ -791,8 +839,12 @@ export async function upsertPart(payload: PartUpsertPayload, allowCreate: boolea
     Revision: toSafeString(payload.revision) || null,
     StockUOM: toSafeString(payload.stockUom) || null,
     ISC: toSafeString(payload.status) || null,
+    LocationCode: toSafeString(payload.location) || null,
     part_type_ID: effectivePartTypeId,
-  } satisfies Pick<Prisma.partmasterUncheckedCreateInput, 'DescText' | 'Revision' | 'StockUOM' | 'ISC' | 'part_type_ID'>;
+  } satisfies Pick<
+    Prisma.partmasterUncheckedCreateInput,
+    'DescText' | 'Revision' | 'StockUOM' | 'ISC' | 'LocationCode' | 'part_type_ID'
+  >;
 
   const updateData: Prisma.partmasterUncheckedUpdateInput = { ...baseData };
 

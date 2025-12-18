@@ -11,6 +11,7 @@ import { prisma } from './lib/prisma.js';
 import { getBillOfMaterials } from './services/bom.js';
 import { getInventorySnapshot } from './services/inventory.js';
 import { getPartDetail, listPartTypes, searchParts, upsertPart } from './services/parts.js';
+import { listLocations } from './services/locations.js';
 import { getUnitsOfMeasure } from './services/uom.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
@@ -256,6 +257,7 @@ async function handlePartUpsert(
       revision: typeof body['revision'] === 'string' ? body['revision'] : undefined,
       stockUom: typeof body['stockUom'] === 'string' ? body['stockUom'] : undefined,
       status: typeof body['status'] === 'string' ? body['status'] : undefined,
+      location: typeof body['location'] === 'string' ? body['location'] : undefined,
       partTypeId: parseNumeric(body['partTypeId']),
       attributes: Array.isArray(body['attributes'])
         ? (body['attributes'] as unknown[]).map((entry, index) => {
@@ -504,6 +506,20 @@ async function handleUnitsOfMeasure(res: ServerResponse, limit: number | undefin
   }
 }
 
+async function handleLocations(res: ServerResponse, limit: number | undefined) {
+  try {
+    const data = await listLocations(limit);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ data }));
+  } catch (error) {
+    logger.error('Locations request failed', { error: serializeError(error) });
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ error: 'Unable to retrieve locations.' }));
+  }
+}
+
 async function serveStaticAsset(res: ServerResponse, filePath: string) {
   try {
     const fileStat = await stat(filePath);
@@ -615,6 +631,11 @@ async function requestHandler(req: IncomingMessage, res: ServerResponse) {
 
   if (req.method === 'GET' && normalizedPath === '/api/inventory') {
     await handleInventoryOverview(res);
+    return;
+  }
+
+  if (req.method === 'GET' && normalizedPath === '/api/locations') {
+    await handleLocations(res, parseLimit(url.searchParams.get('limit')));
     return;
   }
 

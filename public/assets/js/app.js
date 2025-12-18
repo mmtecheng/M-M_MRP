@@ -56,7 +56,7 @@ function initInventorySearch() {
   }
 
   const PAGE_SIZE = 25;
-  const COLUMN_COUNT = 7;
+  const COLUMN_COUNT = 6;
   const quantityFormatter = new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
@@ -260,11 +260,10 @@ function initInventorySearch() {
       const cells = [
         part.partNumber,
         part.description,
-        part.revision,
         quantityFormatter.format(quantityValue),
-        part.location,
         part.stockUom,
-        part.status,
+        part.location,
+        part.notes,
       ];
 
       cells.forEach((value) => {
@@ -1042,9 +1041,8 @@ function initPartEditor() {
   const feedback = modal?.querySelector('[data-part-feedback]');
   const partNumberInput = modal?.querySelector('[data-part-number]');
   const descriptionInput = modal?.querySelector('[data-part-description]');
-  const revisionInput = modal?.querySelector('[data-part-revision]');
-  const stockUomInput = modal?.querySelector('[data-part-stockuom]');
-  const statusInput = modal?.querySelector('[data-part-status]');
+  const locationSelect = modal?.querySelector('[data-part-location]');
+  const stockUomSelect = modal?.querySelector('[data-part-stockuom]');
   const partTypeSelect = modal?.querySelector('[data-part-type]');
   const attributeSection = modal?.querySelector('[data-part-attribute-section]');
   const attributeContainer = modal?.querySelector('[data-part-attributes]');
@@ -1062,9 +1060,8 @@ function initPartEditor() {
     !feedback ||
     !partNumberInput ||
     !descriptionInput ||
-    !revisionInput ||
-    !stockUomInput ||
-    !statusInput ||
+    !locationSelect ||
+    !stockUomSelect ||
     !partTypeSelect ||
     !attributeSection ||
     !attributeContainer ||
@@ -1079,10 +1076,16 @@ function initPartEditor() {
   }
 
   partTypeSelect.required = true;
+  descriptionInput.readOnly = true;
+  descriptionInput.setAttribute('aria-readonly', 'true');
 
   const state = {
     partTypes: [],
     partTypesLoaded: false,
+    locations: [],
+    locationsLoaded: false,
+    uoms: [],
+    uomsLoaded: false,
     currentPart: null,
     mode: 'view',
     attributeValues: new Map(),
@@ -1294,6 +1297,147 @@ function initPartEditor() {
     });
   };
 
+  const loadLocations = async () => {
+    if (state.locationsLoaded) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/locations?limit=5000');
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const payload = await response.json();
+      state.locations = Array.isArray(payload?.data) ? payload.data : [];
+      state.locationsLoaded = true;
+    } catch (error) {
+      console.error('Failed to load locations', error);
+      setFeedback('Unable to load Locations. Please try again.', 'error');
+      state.locations = [];
+    }
+  };
+
+  const loadUoms = async () => {
+    if (state.uomsLoaded) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/uom?limit=5000');
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const payload = await response.json();
+      state.uoms = Array.isArray(payload?.data) ? payload.data : [];
+      state.uomsLoaded = true;
+    } catch (error) {
+      console.error('Failed to load units of measure', error);
+      setFeedback('Unable to load Units of Measure. Please try again.', 'error');
+      state.uoms = [];
+    }
+  };
+
+  const renderLocationOptions = (selectedCode = '') => {
+    locationSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select Location';
+    locationSelect.appendChild(placeholder);
+
+    state.locations.forEach((entry) => {
+      const option = document.createElement('option');
+      option.value = entry.code ?? '';
+      option.textContent = entry.display || entry.code;
+      option.selected = typeof selectedCode === 'string' && selectedCode === entry.code;
+      locationSelect.appendChild(option);
+    });
+  };
+
+  const renderUomOptions = (selectedCode = '') => {
+    stockUomSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select Stock UOM';
+    stockUomSelect.appendChild(placeholder);
+
+    state.uoms.forEach((entry) => {
+      const option = document.createElement('option');
+      option.value = entry.code ?? '';
+      option.textContent = entry.description ? `${entry.code} — ${entry.description}` : entry.code ?? '';
+      option.selected = typeof selectedCode === 'string' && selectedCode === entry.code;
+      stockUomSelect.appendChild(option);
+    });
+  };
+
+  const loadReferenceData = async () => {
+    await Promise.all([loadPartTypes(), loadLocations(), loadUoms()]);
+  };
+
+  const shouldIncludeInDescription = (attribute) => {
+    const code = normalizeAttributeCode(attribute?.code);
+    return code !== 'alternate' && code !== 'notes';
+  };
+
+  const computeDescriptionFromAttributes = (partTypeId, values) => {
+    const partType = state.partTypes.find((entry) => entry.id === partTypeId);
+
+    if (!partType || !Array.isArray(partType.attributes) || partType.attributes.length === 0) {
+      return '';
+    }
+
+    const attributeValues = values instanceof Map ? values : new Map();
+    const attributeIndexLookup = new Map(partType.attributes.map((attribute, index) => [attribute.attributeId, index]));
+    const subtypeAttribute = partType.attributes.find((attribute) => isSubtypeAttribute(attribute));
+    const subtypeValue = subtypeAttribute ? (attributeValues.get(subtypeAttribute.attributeId) ?? '').trim() : '';
+    const descriptionParts = [];
+
+    if (subtypeAttribute) {
+      const value = (attributeValues.get(subtypeAttribute.attributeId) ?? '').trim();
+      if (value) {
+        descriptionParts.push(value);
+      }
+    }
+
+    const sortedAttributes = sortAttributesForDisplay(
+      partType.attributes.filter((attribute) => !subtypeAttribute || attribute.attributeId !== subtypeAttribute.attributeId),
+      attributeIndexLookup,
+    );
+
+    sortedAttributes.forEach((attribute) => {
+      if (!shouldIncludeInDescription(attribute)) {
+        return;
+      }
+
+      const { visible } = resolveRequirementState(attribute.requiredRule, subtypeValue);
+      if (!visible) {
+        return;
+      }
+
+      const value = (attributeValues.get(attribute.attributeId) ?? '').trim();
+      if (value) {
+        descriptionParts.push(value);
+      }
+    });
+
+    return descriptionParts.join(' ').replace(/\s+/g, ' ').trim();
+  };
+
+  const updateDescriptionFromAttributes = () => {
+    const partTypeId = toNumber(partTypeSelect.value);
+    const computed = computeDescriptionFromAttributes(partTypeId, state.attributeValues);
+    const fallback = state.currentPart?.description ?? '';
+    const nextDescription = computed || fallback;
+    descriptionInput.value = nextDescription;
+    descriptionInput.title = nextDescription;
+    if (modalSubtitle) {
+      modalSubtitle.textContent = nextDescription;
+    }
+  };
+
   const renderAttributes = (partTypeId, values = state.attributeValues) => {
     attributeContainer.innerHTML = '';
     const partType = state.partTypes.find((entry) => entry.id === partTypeId);
@@ -1301,6 +1445,7 @@ function initPartEditor() {
     if (!partType || !Array.isArray(partType.attributes) || partType.attributes.length === 0) {
       state.attributeValues = new Map();
       attributeSection.hidden = true;
+      updateDescriptionFromAttributes();
       return;
     }
 
@@ -1386,11 +1531,13 @@ function initPartEditor() {
       control.required = Boolean(required);
 
       const handleChange = () => {
-        attributeValues.set(attribute.attributeId, control.value);
+        attributeValues.set(attribute.attributeId, control.value.trim());
         state.attributeValues = attributeValues;
         if (isSubtypeAttribute(attribute)) {
           renderAttributes(partTypeId, attributeValues);
+          return;
         }
+        updateDescriptionFromAttributes();
       };
 
       control.addEventListener('input', handleChange);
@@ -1425,6 +1572,7 @@ function initPartEditor() {
 
     if (!subtypeReady && subtypeAttribute) {
       attributeSection.hidden = false;
+      updateDescriptionFromAttributes();
       return;
     }
 
@@ -1442,6 +1590,7 @@ function initPartEditor() {
     });
 
     attributeSection.hidden = attributeContainer.children.length === 0;
+    updateDescriptionFromAttributes();
   };
 
   const setMode = (mode) => {
@@ -1450,10 +1599,9 @@ function initPartEditor() {
     const isCreate = mode === 'create';
 
     partNumberInput.disabled = !isCreate;
-    descriptionInput.disabled = !isEdit;
-    revisionInput.disabled = !isEdit;
-    stockUomInput.disabled = !isEdit;
-    statusInput.disabled = !isEdit;
+    descriptionInput.disabled = false;
+    locationSelect.disabled = !isEdit;
+    stockUomSelect.disabled = !isEdit;
     partTypeSelect.disabled = !isEdit;
 
     const attributeInputs = attributeContainer.querySelectorAll('[data-part-attribute-input]');
@@ -1473,7 +1621,10 @@ function initPartEditor() {
     state.mode = 'create';
     state.attributeValues = new Map();
     renderPartTypeOptions();
+    renderLocationOptions();
+    renderUomOptions();
     renderAttributes(null);
+    updateDescriptionFromAttributes();
     if (modalTitle) {
       modalTitle.textContent = 'Add Part';
     }
@@ -1505,26 +1656,26 @@ function initPartEditor() {
 
     if (Array.isArray(detail?.attributes)) {
       detail.attributes.forEach((entry) => {
-        attributeMap.set(entry.attributeId, entry.value ?? '');
+        attributeMap.set(entry.attributeId, (entry.value ?? '').trim());
       });
     }
 
     state.attributeValues = attributeMap;
 
     partNumberInput.value = detail?.partNumber ?? '';
-    descriptionInput.value = detail?.description ?? '';
-    revisionInput.value = detail?.revision ?? '';
-    stockUomInput.value = detail?.stockUom ?? '';
-    statusInput.value = detail?.status ?? '';
+    renderLocationOptions(detail?.locationCode ?? '');
+    renderUomOptions(detail?.stockUom ?? '');
     renderPartTypeOptions(detail?.partTypeId ?? null);
     renderAttributes(detail?.partTypeId ?? null, attributeMap);
+    state.currentPart = detail ?? null;
+    updateDescriptionFromAttributes();
 
     if (modalTitle) {
       modalTitle.textContent = detail?.partNumber ? `Part ${detail.partNumber}` : 'Part Details';
     }
 
     if (modalSubtitle) {
-      modalSubtitle.textContent = detail?.description ?? '';
+      modalSubtitle.textContent = descriptionInput.value;
     }
 
     const hasPartType = Boolean(detail?.partTypeId);
@@ -1543,8 +1694,6 @@ function initPartEditor() {
         partTypeSelect.focus();
       });
     }
-
-    state.currentPart = detail ?? null;
   };
 
   const closeModal = () => {
@@ -1553,13 +1702,13 @@ function initPartEditor() {
   };
 
   const openForCreate = async () => {
-    await loadPartTypes();
+    await loadReferenceData();
     resetForm();
     toggleModal(true);
   };
 
   const openForPart = async (partNumber) => {
-    await loadPartTypes();
+    await loadReferenceData();
 
     if (!partNumber || partNumber.length === 0) {
       return;
@@ -1567,7 +1716,10 @@ function initPartEditor() {
 
     form.reset();
     renderPartTypeOptions();
+    renderLocationOptions();
+    renderUomOptions();
     renderAttributes(null, new Map());
+    updateDescriptionFromAttributes();
     setMode('view');
     setFeedback('Loading part details…');
     toggleModal(true);
@@ -1591,9 +1743,10 @@ function initPartEditor() {
   const saveChanges = async () => {
     const partNumber = partNumberInput.value.trim();
     const description = descriptionInput.value.trim();
-    const revision = revisionInput.value.trim();
-    const stockUom = stockUomInput.value.trim();
-    const status = statusInput.value.trim();
+    const location = locationSelect.value.trim();
+    const stockUom = stockUomSelect.value.trim();
+    const revision = (state.currentPart?.revision ?? '').trim();
+    const status = (state.currentPart?.status ?? '').trim();
     const partTypeId = toNumber(partTypeSelect.value);
     const attributes = getAttributeValues();
 
@@ -1623,6 +1776,7 @@ function initPartEditor() {
         body: JSON.stringify({
           partNumber,
           description,
+          location,
           revision,
           stockUom,
           status,
@@ -1657,6 +1811,7 @@ function initPartEditor() {
     const selectedId = toNumber(partTypeSelect.value);
     state.attributeValues = new Map();
     renderAttributes(selectedId, state.attributeValues);
+    updateDescriptionFromAttributes();
 
     if (typeWarning) {
       typeWarning.hidden = selectedId !== null;
