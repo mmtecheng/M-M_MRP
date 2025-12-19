@@ -33,59 +33,97 @@ export async function listLocations(limit = 500): Promise<LocationOption[]> {
 
   logger.debug('Loading stock locations', { limit: safeLimit });
 
-  const records = await prisma.$queryRaw<
-    { DepartmentCode: unknown; LocationCode: unknown; LocationDescription: unknown; DepartmentDescription: unknown }[]
-  >(Prisma.sql`
-    WITH rooms AS (
+  const [records, partAssignments] = await Promise.all([
+    prisma.$queryRaw<
+      { DepartmentCode: unknown; LocationCode: unknown; LocationDescription: unknown; DepartmentDescription: unknown }[]
+    >(Prisma.sql`
+      WITH rooms AS (
+        SELECT
+          sl.DepartmentCode,
+          '' AS DepartmentDescription
+        FROM stocklocations sl
+        WHERE sl.DepartmentCode IS NOT NULL
+          AND LENGTH(TRIM(sl.DepartmentCode)) > 0
+        GROUP BY sl.DepartmentCode
+      ),
+      locations AS (
+        SELECT
+          sl.DepartmentCode,
+          sl.LocationCode,
+          MAX(NULLIF(TRIM(sl.DescText), '')) AS LocationDescription
+        FROM stocklocations sl
+        WHERE sl.DepartmentCode IS NOT NULL
+          AND LENGTH(TRIM(sl.DepartmentCode)) > 0
+          AND sl.LocationCode IS NOT NULL
+          AND LENGTH(TRIM(sl.LocationCode)) > 0
+        GROUP BY sl.DepartmentCode, sl.LocationCode
+      )
       SELECT
-        sl.DepartmentCode,
-        '' AS DepartmentDescription
-      FROM stocklocations sl
-      WHERE sl.DepartmentCode IS NOT NULL
-        AND LENGTH(TRIM(sl.DepartmentCode)) > 0
-      GROUP BY sl.DepartmentCode
-    ),
-    locations AS (
-      SELECT
-        sl.DepartmentCode,
-        sl.LocationCode,
-        MAX(NULLIF(TRIM(sl.DescText), '')) AS LocationDescription
-      FROM stocklocations sl
-      WHERE sl.DepartmentCode IS NOT NULL
-        AND LENGTH(TRIM(sl.DepartmentCode)) > 0
-        AND sl.LocationCode IS NOT NULL
-        AND LENGTH(TRIM(sl.LocationCode)) > 0
-      GROUP BY sl.DepartmentCode, sl.LocationCode
-    )
-    SELECT
-      r.DepartmentCode,
-      l.LocationCode,
-      l.LocationDescription,
-      r.DepartmentDescription
-    FROM rooms r
-    LEFT JOIN locations l
-      ON l.DepartmentCode = r.DepartmentCode
-    ORDER BY r.DepartmentCode ASC, l.LocationCode ASC
-    LIMIT ${safeLimit}
-  `);
+        r.DepartmentCode,
+        l.LocationCode,
+        l.LocationDescription,
+        r.DepartmentDescription
+      FROM rooms r
+      LEFT JOIN locations l
+        ON l.DepartmentCode = r.DepartmentCode
+      ORDER BY r.DepartmentCode ASC, l.LocationCode ASC
+      LIMIT ${safeLimit}
+    `),
+    prisma.partmaster.findMany({
+      select: { StockroomCode: true, LocationCode: true },
+      where: {
+        StockroomCode: { not: null },
+        LocationCode: { not: null },
+      },
+      take: safeLimit,
+    }),
+  ]);
 
-  return records
-    .map((entry) => {
-      const roomCode = normalize(entry.DepartmentCode);
-      const locationCode = normalize(entry.LocationCode);
-      const roomDescription = normalize(entry.DepartmentDescription);
-      const locationDescription = normalize(entry.LocationDescription);
-      const roomDisplay = roomDescription ? `${roomCode} — ${roomDescription}` : roomCode;
-      const locationDisplay = locationDescription ? `${locationCode} — ${locationDescription}` : locationCode;
+  const seen = new Set<string>();
+  const combined: LocationOption[] = [];
 
-      return {
-        roomCode,
-        roomDescription,
-        roomDisplay,
-        locationCode,
-        locationDescription,
-        locationDisplay,
-      };
-    })
-    .filter((entry) => entry.roomCode.length > 0);
+  const addLocation = (
+    roomCodeValue: unknown,
+    locationCodeValue: unknown,
+    roomDescriptionValue: unknown = '',
+    locationDescriptionValue: unknown = '',
+  ) => {
+    const roomCode = normalize(roomCodeValue);
+    const locationCode = normalize(locationCodeValue);
+
+    if (!roomCode || !locationCode) {
+      return;
+    }
+
+    const key = `${roomCode.toLowerCase()}::${locationCode.toLowerCase()}`;
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+
+    const roomDescription = normalize(roomDescriptionValue);
+    const locationDescription = normalize(locationDescriptionValue);
+    const roomDisplay = roomDescription ? `${roomCode} — ${roomDescription}` : roomCode;
+    const locationDisplay = locationDescription ? `${locationCode} — ${locationDescription}` : locationCode;
+
+    combined.push({
+      roomCode,
+      roomDescription,
+      roomDisplay,
+      locationCode,
+      locationDescription,
+      locationDisplay,
+    });
+  };
+
+  records.forEach((entry) => {
+    addLocation(entry.DepartmentCode, entry.LocationCode, entry.DepartmentDescription, entry.LocationDescription);
+  });
+
+  partAssignments.forEach((entry) => {
+    addLocation(entry.StockroomCode, entry.LocationCode);
+  });
+
+  return combined.slice(0, safeLimit);
 }
