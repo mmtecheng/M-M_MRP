@@ -14,30 +14,61 @@ const toLocationKey = (roomCode, locationCode) => {
   return `${safeRoom}::${safeLocation}`;
 };
 
-async function loadLocationsReference(limit = LOCATION_LIMIT) {
-  if (referenceCache.locationsLoaded && Array.isArray(referenceCache.locations) && referenceCache.locations.length > 0) {
+async function loadLocationsReference(limit = LOCATION_LIMIT, { forceReload = false } = {}) {
+  if (!forceReload && referenceCache.locationsLoaded && Array.isArray(referenceCache.locations) && referenceCache.locations.length > 0) {
     return referenceCache.locations;
   }
 
-  if (referenceCache.locationsPromise) {
+  if (!forceReload && referenceCache.locationsPromise) {
     return referenceCache.locationsPromise;
   }
 
-  referenceCache.locationsPromise = (async () => {
-    const response = await fetch(`/api/locations?limit=${limit}`);
+  if (forceReload) {
+    referenceCache.locationsLoaded = false;
+    referenceCache.locations = [];
+  }
 
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
+  const requestUrl = `/api/locations?limit=${limit}`;
+  const startTime = performance.now();
+  console.debug('Loading locations reference', { limit, forceReload, requestUrl });
+
+  referenceCache.locationsPromise = (async () => {
+    const response = await fetch(requestUrl);
+    const durationMs = Math.round(performance.now() - startTime);
+    let responseBody = null;
+
+    try {
+      responseBody = await response.text();
+    } catch (readError) {
+      console.warn('Unable to read locations response body', readError);
     }
 
-    const payload = await response.json();
+    if (!response.ok) {
+      const detail = responseBody && responseBody.length > 0 ? responseBody : `status ${response.status}`;
+      throw new Error(`Locations request failed: ${detail}`);
+    }
+
+    let payload;
+    try {
+      payload = responseBody ? JSON.parse(responseBody) : {};
+    } catch (parseError) {
+      console.error('Failed to parse locations response as JSON', parseError, { responseBody });
+      throw parseError;
+    }
+
     const locations = Array.isArray(payload?.data) ? payload.data : [];
     referenceCache.locations = locations;
     referenceCache.locationsLoaded = true;
+    console.debug('Locations reference loaded', {
+      count: locations.length,
+      durationMs,
+      limit,
+      requestUrl,
+    });
     return locations;
   })()
     .catch((error) => {
-      console.error('Failed to load locations', error);
+      console.error('Failed to load locations', error, { limit, forceReload, requestUrl });
       referenceCache.locationsLoaded = false;
       referenceCache.locations = [];
       throw error;
@@ -1432,20 +1463,22 @@ function initPartEditor() {
     });
   };
 
-  const loadLocations = async () => {
-    if (state.locationsLoaded && state.locations.length > 0) {
-      return;
+  const loadLocations = async (forceReload = false) => {
+    if (!forceReload && state.locationsLoaded && state.locations.length > 0) {
+      return state.locations;
     }
 
     try {
-      const locations = await loadLocationsReference();
+      const locations = await loadLocationsReference(LOCATION_LIMIT, { forceReload });
       state.locations = Array.isArray(locations) ? locations : [];
       state.locationsLoaded = true;
+      return state.locations;
     } catch (error) {
       console.error('Failed to load locations', error);
       setFeedback('Unable to load Locations. Please try again.', 'error');
       state.locations = [];
       state.locationsLoaded = false;
+      return state.locations;
     }
   };
 
@@ -1532,6 +1565,15 @@ function initPartEditor() {
     const hasRoom = typeof roomCode === 'string' && roomCode.trim().length > 0;
     const hasLocations = filtered.length > 0 || Boolean(selectedCode);
     locationSelect.disabled = !hasRoom || !hasLocations;
+  };
+
+  const refreshRoomsAndLocations = async (forceReload = false) => {
+    const currentRoom = roomSelect.value;
+    const currentLocation = locationSelect.value;
+    await loadLocations(forceReload);
+    renderRoomOptions(currentRoom);
+    renderLocationOptions(currentRoom, currentLocation);
+    syncRoomAndLocationState(state.mode !== 'view');
   };
 
   const loadUoms = async () => {
@@ -2068,6 +2110,25 @@ function initPartEditor() {
 
   addButton?.addEventListener('click', () => {
     void openForCreate();
+  });
+
+  const retryLocationsOnInteraction = async () => {
+    if (state.locationsLoaded && state.locations.length > 0) {
+      return;
+    }
+
+    setFeedback('Refreshing locations…', 'info');
+    try {
+      await refreshRoomsAndLocations(true);
+      setFeedback('', 'info');
+    } catch (error) {
+      console.error('Failed to refresh locations after interaction', error);
+      setFeedback('Unable to load Locations. Please try again.', 'error');
+    }
+  };
+
+  roomSelect.addEventListener('pointerdown', () => {
+    void retryLocationsOnInteraction();
   });
 
   roomSelect.addEventListener('change', () => {
