@@ -509,12 +509,14 @@ async function handleUnitsOfMeasure(res: ServerResponse, limit: number | undefin
 
 async function handleLocations(res: ServerResponse, limit: number | undefined) {
   try {
+    logger.info('Locations API request received', { limit });
     const data = await listLocations(limit);
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ data }));
+    logger.info('Locations API response sent', { limit, count: data.length });
   } catch (error) {
-    logger.error('Locations request failed', { error: serializeError(error) });
+    logger.error('Locations request failed', { limit, error: serializeError(error) });
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ error: 'Unable to retrieve locations.' }));
